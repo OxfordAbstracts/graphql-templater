@@ -1,0 +1,24 @@
+{
+  "name": "graphql-templater",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "serve": "spago build && esbuild --bundle index.js --servedir=dist",
+    "dev": "esbuild --bundle index.js --outdir=dist --serve index.js --servedir=dist",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "graphql": "^16.6.0",
+    "isomorphic-fetch": "^3.0.0",
+    "xhr2": "^0.2.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.16.10"
+  }
+}
