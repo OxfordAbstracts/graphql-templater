@@ -1,109 +1,83 @@
-module GraphQL.Templater.Lexer where
+module GraphQL.Templater.Lexer
+  ( lex
+  , toString
+  )
+  where
 
 import Prelude
 
 import Data.Array as Array
+import Data.CodePoint.Unicode (isSpace)
 import Data.Either (Either)
-import Data.Foldable (class Foldable)
-import Data.Generic.Rep (class Generic)
+import Data.Foldable (class Foldable, oneOf)
 import Data.List (List, (:))
-import Data.Show.Generic (genericShow)
 import Data.String.CodeUnits (fromCharArray)
+import GraphQL.Templater.Token (Token(..), TokenWithPos, Tokens)
 import Parsing (ParseError, Parser, ParserT, Position, position, runParser)
-import Parsing.Combinators (lookAhead, many, many1Till, manyTill, try, (<|>))
-import Parsing.String (anyChar, char, eof, string)
-import Parsing.String.Basic (alphaNum, letter, skipSpaces)
+import Parsing.Combinators (lookAhead, many, many1Till, manyTill, optionMaybe, try, (<|>))
+import Parsing.String (anyChar, char, eof, regex, string)
+import Parsing.String.Basic (alphaNum, letter, skipSpaces, takeWhile1, whiteSpace)
 
-data Token a
-  = Each String a
-  | If String a
-  | Else a
-  | End a
-  | Var String a
-  | Text String a
-  | EOF
-
-derive instance Generic (Token a) _
-
-derive instance Functor Token
-
-derive instance eqToken :: Eq a => Eq (Token a)
-
-instance Show a => Show (Token a) where
-  show = genericShow
-
-type Positions = { start :: Position, end :: Position }
-
-lex :: String -> Either ParseError (List (Token Positions))
+lex :: String -> Either ParseError Tokens
 lex str = runParser str (manyTill tokenParser eof)
 
-tokenParser :: Parser String (Token Positions)
-tokenParser = 
-  if_
-  <|> each_
-  <|> end_
-  <|> else_
-  <|> var_
-  <|> text_
+tokenParser :: Parser String TokenWithPos
+tokenParser = addPos $
+  oneOf
+    [ special
+    , WhiteSpace <$> whiteSpace1
+    , textP
+    ]
+
   where
-  if_ = withPositions do
-    try $ void $ string "{{#if"
-    skipSpaces
-    name <- identifier
-    skipSpaces
-    close
-    pure $ If name
+  special = oneOf
+    [ Else <$ string "{{#else}}"
+    , End <$ string "{{#end}}"
+    , Equals <$ string "="
+    , Colon <$ string ":"
+    , Comma <$ string ","
+    , OpenBraces <$ string "{{"
+    , CloseBraces <$ string "}}"
+    , OpenParen <$ string "("
+    , CloseParen <$ string ")"
+    , Hash <$ string "#"
+    , Dot <$ string "."
+    ]
 
-  each_ = withPositions do
-    try $ void $ string "{{#each"
-    skipSpaces
-    name <- identifier
-    skipSpaces
-    close
-    pure $ Each name
+  addPos p = do
+    start <- position
+    token <- p
+    end <- position
+    pure $ { token, start, end }
 
-  end_ = withPositions do
-    try $ void $ string "{{end}}"
-    pure End
-
-  else_ = withPositions do
-    try $ void $ string "{{else}}"
-    pure Else
-
-  var_ = withPositions do
-    try $ void $ string "{{"
-    skipSpaces
-    name <- identifier
-    skipSpaces
-    close
-    pure $ Var name
-
-  text_ = withPositions do
-    chars <- try $ many1Till anyChar (lookAhead $ void (string "{{") <|> eof)
+  textP = do
+    chars <- try $ many1Till anyChar (lookAhead $ void special <|> eof)
     pure $ Text $ toString chars
 
-  close = void $ string "}}"
+  whiteSpace1 = takeWhile1 isSpace
 
-withPositions
-  :: forall a s m
-   . ParserT s m
-       ( { end :: Position
-         , start :: Position
-         }
-         -> a
-       )
-  -> ParserT s m a
-withPositions p = do
-  start <- position
-  x <- p
-  end <- position
-  pure $ x { start, end }
+--   close = void $ string "}}"
 
-identifier :: Parser String String
-identifier = do
-  first <- letter
-  rest <- many (alphaNum <|> char '_' <|> char '.')
-  pure $ toString $ first : rest
+-- withPositions
+--   :: forall a s m
+--    . ParserT s m
+--        ( { end :: Position
+--          , start :: Position
+--          }
+--          -> a
+--        )
+--   -> ParserT s m a
+-- withPositions p = do
+--   start <- position
+--   x <- p
+--   end <- position
+--   pure $ x { start, end }
+
+-- identifier :: Parser String String
+-- identifier = do
+--   first <- letter
+--   rest <- many (alphaNum <|> char '_' <|> char '.' <|> char '/')
+--   pure $ toString $ first : rest
 
 toString :: forall f. Foldable f => f Char -> String
 toString = fromCharArray <<< Array.fromFoldable
