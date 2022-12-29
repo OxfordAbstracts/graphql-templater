@@ -22,6 +22,7 @@ import Effect.Aff.Class (class MonadAff)
 import Effect.Exception (message)
 import GraphQL.Templater.GetSchema (getGqlDoc)
 import GraphQL.Templater.Lexer (lex)
+import GraphQL.Templater.Parser (parse)
 import Halogen (ClassName(..))
 import Halogen as H
 import Halogen.Aff as HA
@@ -81,11 +82,7 @@ component =
 
       , HH.pre
           [ css "border-2 rounded-md p-1 m-2" ]
-          [ HH.text $ either parseErrorMessage (map show >>> intercalate "\n") $ lex state.template
-          
-          -- $ case lex  of
-          --     Just doc -> doc
-          --     Nothing -> "Loading schema"
+          [ HH.text $ either parseErrorMessage (map (map (const unit) >>> show) >>> intercalate "\n") $ parse state.template
           ]
           
       , HH.pre

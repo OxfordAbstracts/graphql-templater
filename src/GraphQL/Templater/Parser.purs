@@ -1,55 +1,81 @@
-module GraphQL.Templater.Parser where
+module GraphQL.Templater.Parser (parse) where
 
 import Prelude hiding (when)
 
+import Data.Array as Array
+import Data.Either (Either)
+import Data.Foldable (class Foldable, oneOf)
+import Data.GraphQL.Parser (arguments)
+import Data.GraphQL.Parser as GqlAst
 import Data.List (List)
-import Data.Maybe (Maybe(..))
-import GraphQL.Templater.Ast (Ast(..), AstPos, VarIdent(..))
--- import GraphQL.Templater.Token (TokenPos, getTokenVar)
-import GraphQL.Templater.Token as T
-import Parsing (Parser, ParserT, fail)
-import Parsing.Combinators (try, (<|>))
-import Parsing.Token (token, when)
-import Unsafe.Coerce (unsafeCoerce)
+import Data.String.CodeUnits (fromCharArray)
+import Data.Tuple (Tuple(..))
+import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), VarPathPart(..))
+import GraphQL.Templater.Positions (Positions)
+import Parsing (ParseError, Parser, ParserT, position, runParser)
+import Parsing.Combinators (lookAhead, many1Till, manyTill, optionMaybe, sepBy1, try, (<|>))
+import Parsing.String (anyChar, char, eof, string)
+import Parsing.String.Basic (skipSpaces)
 
--- parser :: Parser (List TokenPos) AstPos
--- parser =  ifP <|> p 
+parse
+  :: String
+  -> Either ParseError (List AstPos)
+parse str = runParser str (manyTill astParser eof)
 
---   where
---   p = mayTok case _ of
---     T.Var a b -> Just $ pure $ Var a b
---     T.Text a b -> Just $ pure $ Text a b
---     _ -> Nothing
+astParser :: Parser String AstPos
+astParser = withPositions $ oneOf
+  [ eachP
+  , varP
+  , Text <$> textP
+  ]
+  where
+  varP = do
+    _ <- string "{{"
+    skipSpaces
+    varPath <- varPathParser
+    skipSpaces
+    _ <- string "}}"
+    pure $ Var varPath
 
---   ifP = do
---     ifStr <- try $ mayTok \t -> case t of
---       T.If s _ -> Just s
---       _ -> Nothing
+  eachP = do
+    _ <- try $ string "{{#each"
+    skipSpaces
+    varPath <- varPathParser
+    skipSpaces
+    _ <- string "}}"
+    asts <- manyTill astParser (string "{{/each}}")
+    pure $ Each varPath asts
 
---     --  token $ _.start <<< getTokenVar
---     pure $ If
---       { condition: unsafeCoerce unit, then: unsafeCoerce unit, else: Nothing }
---       (unsafeCoerce unit)
+  textP = do
+    chars <- try $ many1Till anyChar (lookAhead $ void (string "{{") <|> eof)
+    pure $ toString chars
 
--- varIdentParser :: Parser (List TokenPos) VarIdent
--- varIdentParser = unsafeCoerce unit
+varPathParser :: Parser String (VarPath Positions)
+varPathParser = withPositions $ VarPath <$> sepBy1 varPathPartParser (char '.')
 
--- -- getTok 
+varPathPartParser :: Parser String (VarPathPart Positions)
+varPathPartParser = withPositions do
+  skipSpaces
+  name <- varPartNameParser
+  skipSpaces
+  args <- optionMaybe $ withPositions $ Tuple <$> arguments
+  pure $ VarPathPart { name, args }
 
--- whenTok :: forall m. (TokenPos -> Boolean) -> ParserT (List TokenPos) m TokenPos
--- whenTok = when (_.start <<< getTokenVar)
+varPartNameParser :: Parser String (VarPartName Positions)
+varPartNameParser = withPositions $
+  (VarPartNameParent <$ string "$parent")
+    <|> (VarPartNameRoot <$ string "$root")
+    <|> (VarPartNameGqlName <$> GqlAst.name)
 
--- mayTok :: forall m a. (TokenPos -> Maybe (ParserT (List TokenPos) m a)) -> ParserT (List TokenPos) m a
--- mayTok fn = do
---   t <- token (_.start <<< getTokenVar)
---   case fn t of
---     Just a ->  a
---     Nothing -> fail "Unexpected token"
+withPositions
+  :: forall b m a
+   . ParserT m a (Positions -> b)
+  -> ParserT m a b
+withPositions p = do
+  start <- position
+  x <- p
+  end <- position
+  pure $ x { start, end }
 
--- cond <- parser
--- _ <- token "then"
--- then <- parser
--- else <- optional $ do
---   _ <- token "else"
---   parser
--- pure $ If cond then else
+toString :: forall f. Foldable f => f Char -> String
+toString = fromCharArray <<< Array.fromFoldable

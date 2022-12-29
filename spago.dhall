@@ -28,13 +28,18 @@ to generate this file without the comments in this block.
   , "foldable-traversable"
   , "graphql-parser"
   , "halogen"
+  , "integers"
   , "lists"
   , "maybe"
   , "nullable"
   , "parsing"
   , "prelude"
+  , "record"
+  , "record-extra"
   , "strings"
   , "transformers"
+  , "tuples"
+  , "unicode"
   , "unsafe-coerce"
   ]
 , packages = ./packages.dhall

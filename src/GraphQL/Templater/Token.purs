@@ -12,6 +12,8 @@ data Token
   | CloseBraces
   | OpenParen
   | CloseParen
+  | OpenSquareBrackets
+  | CloseSquareBrackets
   | Equals
   | Dot
   | Comma
@@ -19,8 +21,13 @@ data Token
   | Hash
   | Else 
   | End
+  | Null
+  | Boolean Boolean
+  | Int Int
+  | Number Number
+  | String String
   | WhiteSpace String
-  | Text String
+  | Literal String
 
 type TokenWithPos = { start :: Position, end :: Position, token :: Token}
 

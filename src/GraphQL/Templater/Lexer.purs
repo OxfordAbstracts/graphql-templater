@@ -1,22 +1,24 @@
 module GraphQL.Templater.Lexer
   ( lex
   , toString
-  )
-  where
+  ) where
 
 import Prelude
 
 import Data.Array as Array
 import Data.CodePoint.Unicode (isSpace)
-import Data.Either (Either)
+import Data.Either (Either(..))
 import Data.Foldable (class Foldable, oneOf)
-import Data.List (List, (:))
+import Data.Int as Int
+import Data.Maybe (Maybe(..))
 import Data.String.CodeUnits (fromCharArray)
+import Data.String.CodeUnits as SCU
+import Data.String.Regex.Flags (noFlags)
 import GraphQL.Templater.Token (Token(..), TokenWithPos, Tokens)
-import Parsing (ParseError, Parser, ParserT, Position, position, runParser)
-import Parsing.Combinators (lookAhead, many, many1Till, manyTill, optionMaybe, try, (<|>))
-import Parsing.String (anyChar, char, eof, regex, string)
-import Parsing.String.Basic (alphaNum, letter, skipSpaces, takeWhile1, whiteSpace)
+import Parsing (ParseError, Parser, ParserT, fail, position, runParser)
+import Parsing.Combinators (lookAhead, many1Till, manyTill, try, (<|>))
+import Parsing.String (anyChar, eof, regex, string)
+import Parsing.String.Basic (takeWhile1)
 
 lex :: String -> Either ParseError Tokens
 lex str = runParser str (manyTill tokenParser eof)
@@ -33,6 +35,7 @@ tokenParser = addPos $
   special = oneOf
     [ Else <$ string "{{#else}}"
     , End <$ string "{{#end}}"
+    , Null <$ string "null"
     , Equals <$ string "="
     , Colon <$ string ":"
     , Comma <$ string ","
@@ -40,8 +43,13 @@ tokenParser = addPos $
     , CloseBraces <$ string "}}"
     , OpenParen <$ string "("
     , CloseParen <$ string ")"
+    , OpenSquareBrackets <$ string "["
+    , CloseSquareBrackets <$ string "]"
     , Hash <$ string "#"
     , Dot <$ string "."
+    , Int <$> int
+    , Boolean <$> boolean
+    , stringP
     ]
 
   addPos p = do
@@ -52,32 +60,35 @@ tokenParser = addPos $
 
   textP = do
     chars <- try $ many1Till anyChar (lookAhead $ void special <|> eof)
-    pure $ Text $ toString chars
+    pure $ Literal $ toString chars
 
   whiteSpace1 = takeWhile1 isSpace
 
---   close = void $ string "}}"
+  stringP = do
+    raw <- stringRegex
+    pure $ String $ SCU.drop 1 $ SCU.dropRight 1 raw
 
--- withPositions
---   :: forall a s m
---    . ParserT s m
---        ( { end :: Position
---          , start :: Position
---          }
---          -> a
---        )
---   -> ParserT s m a
--- withPositions p = do
---   start <- position
---   x <- p
---   end <- position
---   pure $ x { start, end }
-
--- identifier :: Parser String String
--- identifier = do
---   first <- letter
---   rest <- many (alphaNum <|> char '_' <|> char '.' <|> char '/')
---   pure $ toString $ first : rest
+stringRegex ∷ ∀ m. (ParserT String m String)
+stringRegex = case regex "\"(\\\\\"|[^\"])*\"" noFlags of
+  Left err -> fail $ "String Regex failed to compile: " <> show err
+  Right p -> p
 
 toString :: forall f. Foldable f => f Char -> String
 toString = fromCharArray <<< Array.fromFoldable
+
+int :: Parser String Int
+int = do
+  raw <- regexUnsafe "[0-9]+"
+  case Int.fromString raw of
+    Just n -> pure n
+    Nothing -> fail "Invalid integer"
+
+boolean :: Parser String Boolean
+boolean = do 
+  b <- regexUnsafe "true|false"
+  pure $ b == "true"
+
+regexUnsafe :: String -> Parser String String
+regexUnsafe str = case regex str noFlags of
+  Left err -> fail $ show str <> " regex failed to compile: " <> show err
+  Right p -> p
