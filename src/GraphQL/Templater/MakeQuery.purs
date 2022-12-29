@@ -2,28 +2,53 @@ module GraphQL.Templater.MakeQuery where
 
 import Prelude
 
-import Data.Foldable (class Foldable, fold, foldl, lookup)
-import Data.GraphQL.AST (Argument(..), Arguments(..), ExecutableDefinition, Field(..), SelectionSet(..))
+import Data.Foldable (foldl, lookup)
+import Data.FunctorWithIndex (mapWithIndex)
+import Data.GraphQL.AST (Arguments(..))
+import Data.GraphQL.AST as GqlAst
+import Data.GraphQL.AST.Print (printAst)
+import Data.Hashable (hash)
 import Data.List (List(..), reverse, tail, (:))
-import Data.List.NonEmpty (NonEmptyList, head, uncons)
 import Data.List.NonEmpty as NonEmpty
-import Data.Map (Map, unionWith)
+import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
-import Data.Newtype (unwrap)
-import Data.Tuple (Tuple(..), fst, snd)
-import Data.Unfoldable (none)
-import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), VarPathPart(..))
-import GraphQL.Templater.Positions (Positions)
-import Unsafe.Coerce (unsafeCoerce)
+import Data.Tuple (Tuple(..), fst)
+import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..))
 
 data SelectionTree =
   SelectionTree Selections
 
-type Selections = Map String (List (Tuple Arguments SelectionTree))
+type Selections = Map { name :: String, args :: Arguments } SelectionTree
 
-buildSelectionTree :: forall a. List (Ast a) -> Selections
-buildSelectionTree = go Nil Map.empty
+toGqlString :: forall a. List (Ast a) -> String
+toGqlString = makeSelections
+  >>> SelectionTree
+  >>> toGqlOperationDefinition
+  >>> printAst
+
+toGqlOperationDefinition :: SelectionTree -> GqlAst.OperationDefinition
+toGqlOperationDefinition (SelectionTree sels) = GqlAst.OperationDefinition_OperationType
+  { directives: Nothing
+  , name: Nothing
+  , operationType: GqlAst.Query
+  , selectionSet: toGqlSelectionSet (SelectionTree sels)
+  , variableDefinitions: Nothing
+  }
+
+toGqlSelectionSet :: SelectionTree -> GqlAst.SelectionSet
+toGqlSelectionSet (SelectionTree sels) = GqlAst.SelectionSet
+  $ Map.toUnfoldable sels <#> \(Tuple { name, args } (SelectionTree tree)) ->
+      GqlAst.Selection_Field $ GqlAst.Field
+        { alias: if args == nilArgs then Nothing else Just $ name <> "__" <> show (hash args)
+        , arguments: if args == nilArgs then Nothing else Just args
+        , directives: Nothing
+        , name
+        , selectionSet: if Map.isEmpty tree then Nothing else Just $ toGqlSelectionSet (SelectionTree tree)
+        }
+
+makeSelections :: forall a. List (Ast a) -> Selections
+makeSelections = go Nil Map.empty
   where
   go :: List (Tuple Arguments String) -> _ -> List (Ast a) -> Selections
   go ancestors = foldl (step ancestors)
@@ -41,24 +66,21 @@ buildSelectionTree = go Nil Map.empty
     let
       path = normalizePath ancestors (NonEmpty.toList v)
     in
-      insertPath res path
+      insertPath res (reverse path)
 
   insertPath :: Selections -> List (Tuple Arguments String) -> Selections
   insertPath sels = case _ of
     Nil -> sels
     Tuple args name : rest ->
       let
-        handleVals :: List (Tuple Arguments SelectionTree) -> List (Tuple Arguments SelectionTree)
-        handleVals vals = case lookup args vals of
-          Just (SelectionTree tree) -> vals <#> \(Tuple a v') ->
-            if a == args then
-              Tuple a (SelectionTree $ insertPath tree rest)
-            else
-              Tuple a v'
-
-          _ -> Tuple args (SelectionTree Map.empty) : vals
+        handleCollision (SelectionTree tree) = SelectionTree $ insertPath tree rest
       in
-        Map.alter (Just <<< handleVals <<< fromMaybe Nil) name sels
+        Map.alter
+          ( Just <<< handleCollision
+              <<< fromMaybe (SelectionTree Map.empty)
+          )
+          { name, args }
+          sels
 
   normalizePath :: List (Tuple Arguments String) -> List (VarPathPart a) -> List (Tuple Arguments String)
   normalizePath res = case _ of
@@ -68,89 +90,7 @@ buildSelectionTree = go Nil Map.empty
       normalizePath (Tuple (getPartArgs args) gqlName : res) rest
     _ -> res
 
-  -- getPartArgs :: VarPathPart _ -> Arguments
   getPartArgs = maybe nilArgs fst
 
-  nilArgs = Arguments Nil
-
--- getPath ancestors = foldl (\acc (VarPathPart { name } _) -> acc <> "." <> name) ancestors.name root.selectionSet
-
--- getSelectionSet :: List AstPos -> SelectionSet
--- getSelectionSet = 
-
--- mergeGqlFields :: List Field -> List Field -> List Field
--- mergeGqlFields fs1 fs2
-
--- placeInTree
---   :: forall a
---    . Map (VarPartName a) (Selection (Map (VarPartName a)) (VarPartName a))
---   -> Map (VarPartName a) (Selection (Map (VarPartName a)) (VarPartName a))
--- placeInTree = unsafeCoerce
-
--- unifySelection
---   :: forall n sel
---    . Ord n
---   => Foldable sel
---   => sel (Selection sel n)
---   -> Map n (Selection (Map n) n)
--- unifySelection = foldl resolve Map.empty
---   where
---   resolve :: Map n (Selection (Map n) n) -> Selection sel n -> Map n (Selection (Map n) n)
---   resolve res (Selection sel@{ name }) = Map.alter alter name res
---     where
---     alter = case _ of
---       Just (Selection found) -> Just $ Selection $ found
---         { selectionSet = unionWith mergeSelections found.selectionSet (unifySelection sel.selectionSet)
---         }
-
---       Nothing -> Just $ Selection $ sel { selectionSet = unifySelection sel.selectionSet }
-
---   mergeSelections :: Selection (Map n) n -> Selection (Map n) n -> Selection (Map n) n
---   mergeSelections (Selection sel1) (Selection sel2) = Selection sel1
---     { selectionSet =
---         unionWith mergeSelections sel1.selectionSet sel2.selectionSet
---     }
-
--- resolveAncestors :: forall a. Selection List (VarPartName a) -> Selection List String
--- resolveAncestors selection' = go { root: selection', ancestors: pure selection' } selection'
---   where
---   go
---     :: { root :: Selection List (VarPartName a), ancestors :: List (Selection List (VarPartName a)) }
---     -> Selection List (VarPartName a)
---     -> (Selection List String)
---   go { root, ancestors } (Selection sel@{name}) = Selection sel
---     { name = ?d name
---     -- foldl (\acc (VarPathPart { name } _) -> acc <> "." <> name) ancestors.name root.selectionSet
---     , selectionSet = map (go { root, ancestors: Selection sel : ancestors }) sel.selectionSet
---     }
-
--- -- List (Selection Maybe n) -> Map n (Selection Maybe n)
-
--- getSelection :: forall a. Ast a -> List (Selection List (VarPartName a))
--- getSelection = case _ of
---   Var v _ -> pure $ getVarPathSelection v
---   Each v ast _ -> getVarPathSelection v : (getSelection =<< ast)
---   Text _ _ -> Nil
-
--- getVarPathSelection :: forall a. VarPath a -> Selection List (VarPartName a)
--- getVarPathSelection (VarPath p _) = getVarPathPartsSelection p
-
--- getVarPathPartsSelection :: forall a. NonEmptyList (VarPathPart a) -> Selection List (VarPartName a)
--- getVarPathPartsSelection p = Selection
---   { name: part.name
---   , arguments: maybe Nil (fst >>> unwrap) part.args
---   , selectionSet: case NonEmpty.fromList tail of
---       Nothing -> none
---       Just t -> pure $ getVarPathPartsSelection t
---   }
---   where
---   { head: VarPathPart part _, tail } = uncons p
-
--- data Selection sel n = Selection
---   { name :: n
---   , arguments :: List Argument
---   , selectionSet :: sel (Selection sel n)
---   }
-
--- x :: forall a. List a -> Maybe (NonEmptyList a) 
--- x = ?d
+nilArgs :: Arguments
+nilArgs = Arguments Nil

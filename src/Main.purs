@@ -15,13 +15,11 @@ import Data.Either (either)
 import Data.Foldable (intercalate)
 import Data.GraphQL.AST.Print (printAst)
 import Data.Maybe (Maybe(..))
-import Data.String (joinWith)
-import Debug (spy, traceM)
 import Effect (Effect)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Exception (message)
 import GraphQL.Templater.GetSchema (getGqlDoc)
-import GraphQL.Templater.Lexer (lex)
+import GraphQL.Templater.MakeQuery (toGqlString)
 import GraphQL.Templater.Parser (parse)
 import Halogen (ClassName(..))
 import Halogen as H
@@ -80,6 +78,11 @@ component =
       , HH.div [] [ HH.text "Result:" ]
       , HH.div [ HP.ref resultLabel ] []
 
+      , HH.pre
+          [ css "border-2 rounded-md p-1 m-2 whitespace-pre" ]
+          [ HH.text $ either parseErrorMessage toGqlString $ parse state.template
+          ]
+          
       , HH.pre
           [ css "border-2 rounded-md p-1 m-2" ]
           [ HH.text $ either parseErrorMessage (map (map (const unit) >>> show) >>> intercalate "\n") $ parse state.template

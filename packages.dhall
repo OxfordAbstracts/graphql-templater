@@ -122,6 +122,7 @@ in  upstream
         , "node-fs"
         , "numbers"
         , "ordered-collections"
+        , "unordered-collections"
         , "parsing"
         , "prelude"
         , "profunctor"
@@ -136,5 +137,5 @@ in  upstream
     , repo =
         "https://github.com/OxfordAbstracts/purescript-graphql-parser.git"
     , version =
-        "8e1fb72dd5e2ee189c99de3e5b70d9500f14fdb8"
+        "31c6ae0"
     }

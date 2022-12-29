@@ -32,6 +32,7 @@ to generate this file without the comments in this block.
   , "lists"
   , "maybe"
   , "nullable"
+  , "ordered-collections"
   , "parsing"
   , "prelude"
   , "record"
@@ -40,6 +41,7 @@ to generate this file without the comments in this block.
   , "transformers"
   , "tuples"
   , "unicode"
+  , "unordered-collections"
   , "unsafe-coerce"
   ]
 , packages = ./packages.dhall
