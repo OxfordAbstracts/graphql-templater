@@ -1,25 +1,19 @@
 module Main (main) where
 
--- import Prelude
-
--- import Effect (Effect)
--- import Effect.Aff (launchAff_)
--- import Effect.Class.Console (logShow)
--- import Effect.Console (log)
--- import GraphQL.Templater.GetSchema (getGqlDoc)
-
 import Prelude
 
 import Control.Monad.Error.Class (try)
-import Data.Either (either)
+import Data.Either (Either(..), either)
 import Data.Foldable (intercalate)
 import Data.GraphQL.AST.Print (printAst)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
+import Debug (spy)
 import Effect (Effect)
-import Effect.Aff.Class (class MonadAff)
+import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Exception (message)
+import GraphQL.Templater.Eval (eval)
+import GraphQL.Templater.Eval.MakeQuery (toGqlString)
 import GraphQL.Templater.GetSchema (getGqlDoc)
-import GraphQL.Templater.MakeQuery (toGqlString)
 import GraphQL.Templater.Parser (parse)
 import Halogen (ClassName(..))
 import Halogen as H
@@ -55,7 +49,8 @@ component =
   where
   initialState _ =
     { url: "https://graphqlzero.almansi.me/api"
-    , template: ""
+    , template: defaultQuery
+    , result: ""
     , document: Nothing
     }
 
@@ -72,22 +67,26 @@ component =
           [ HP.value state.template
           , HP.placeholder "Enter graphql template"
           , HE.onValueInput SetTemplate
-          , css "border-2 rounded-md p-1 m-2 h-96 whitespace-pre-wrap"
+          , css "border-2 rounded-md p-1 m-2 h-48 whitespace-pre-wrap"
           ]
 
       , HH.div [] [ HH.text "Result:" ]
-      , HH.div [ HP.ref resultLabel ] []
+      , HH.pre
+          [ HP.ref resultLabel
+          , css "border-2 rounded-md p-1 m-2 whitespace-pre-wrap"
+          ]
+          [ HH.text state.result ]
 
       , HH.pre
           [ css "border-2 rounded-md p-1 m-2 whitespace-pre" ]
-          [ HH.text $ either parseErrorMessage toGqlString $ parse state.template
+          [ HH.text $ either parseErrorMessage (toGqlString >>> fromMaybe "No query") $ parse state.template
           ]
-          
+
       , HH.pre
           [ css "border-2 rounded-md p-1 m-2" ]
           [ HH.text $ either parseErrorMessage (map (map (const unit) >>> show) >>> intercalate "\n") $ parse state.template
           ]
-          
+
       , HH.pre
           [ css "border-2 rounded-md p-1 m-2" ]
           [ HH.text $ case state.document of
@@ -101,7 +100,23 @@ component =
     SetUrl url -> do
       H.modify_ _ { url = url }
       loadSchema
-    SetTemplate template -> H.modify_ _ { template = template }
+    SetTemplate template -> do
+      { url } <- H.modify _ { template = template }
+      case parse template of
+        Left _ -> pure unit
+        Right ast -> do
+          res <- liftAff $ eval { ast, url }
+          let
+            resultStr = case spy "res" res of
+              Left err -> show err
+              Right query -> query
+
+          H.modify_ _ { result = resultStr }
+    -- resElementMb <- H.getRef resultLabel
+    -- for_ resElementMb \resElement -> do
+    --   unsafeS
+    --   resElement.innerHTML = resultStr
+
     where
     loadSchema = do
       st <- H.get
@@ -128,3 +143,9 @@ css
        )
        a
 css = class_ <<< ClassName
+
+
+defaultQuery :: String 
+defaultQuery = """{{#each albums.data}}
+id: {{id}}
+{{title}} by {{user.name}} {{/each}}"""

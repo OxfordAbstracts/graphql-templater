@@ -1,9 +1,8 @@
-module GraphQL.Templater.MakeQuery where
+module GraphQL.Templater.Eval.MakeQuery  (getAlias, nilArgs, toGqlString) where
 
 import Prelude
 
-import Data.Foldable (foldl, lookup)
-import Data.FunctorWithIndex (mapWithIndex)
+import Data.Foldable (foldl)
 import Data.GraphQL.AST (Arguments(..))
 import Data.GraphQL.AST as GqlAst
 import Data.GraphQL.AST.Print (printAst)
@@ -21,11 +20,13 @@ data SelectionTree =
 
 type Selections = Map { name :: String, args :: Arguments } SelectionTree
 
-toGqlString :: forall a. List (Ast a) -> String
-toGqlString = makeSelections
-  >>> SelectionTree
-  >>> toGqlOperationDefinition
-  >>> printAst
+toGqlString :: forall a. List (Ast a) -> Maybe String
+toGqlString = astToGqlOperationDefinition >>> map printAst
+
+astToGqlOperationDefinition :: forall a. List (Ast a) -> Maybe GqlAst.OperationDefinition
+astToGqlOperationDefinition =
+  makeSelections
+    >>> map (SelectionTree >>> toGqlOperationDefinition)
 
 toGqlOperationDefinition :: SelectionTree -> GqlAst.OperationDefinition
 toGqlOperationDefinition (SelectionTree sels) = GqlAst.OperationDefinition_OperationType
@@ -40,24 +41,32 @@ toGqlSelectionSet :: SelectionTree -> GqlAst.SelectionSet
 toGqlSelectionSet (SelectionTree sels) = GqlAst.SelectionSet
   $ Map.toUnfoldable sels <#> \(Tuple { name, args } (SelectionTree tree)) ->
       GqlAst.Selection_Field $ GqlAst.Field
-        { alias: if args == nilArgs then Nothing else Just $ name <> "__" <> show (hash args)
+        { alias: getAlias name args
         , arguments: if args == nilArgs then Nothing else Just args
         , directives: Nothing
         , name
         , selectionSet: if Map.isEmpty tree then Nothing else Just $ toGqlSelectionSet (SelectionTree tree)
         }
 
-makeSelections :: forall a. List (Ast a) -> Selections
-makeSelections = go Nil Map.empty
+getAlias ∷ String → Arguments → Maybe String
+getAlias name args = if args == nilArgs then Nothing else Just $ name <> "__" <> show (hash args)
+
+makeSelections :: forall a. List (Ast a) -> Maybe Selections
+makeSelections topLevelAsts =
+  if noVariables topLevelAsts then
+    Nothing
+  else
+    Just $ go Nil Map.empty topLevelAsts
+
   where
-  go :: List (Tuple Arguments String) -> _ -> List (Ast a) -> Selections
+  go :: List (Tuple Arguments String) -> Selections -> List (Ast a) -> Selections
   go ancestors = foldl (step ancestors)
 
   step :: List (Tuple Arguments String) -> Selections -> (Ast a) -> Selections
   step ancestors res = case _ of
     Var (VarPath v _) _ -> normalizeAndInsertPath ancestors res v
     Each (VarPath v _) ast _ ->
-      go (normalizePath ancestors (pure $ NonEmpty.head v))
+      go (normalizePath ancestors (NonEmpty.toList v))
         (normalizeAndInsertPath ancestors res v)
         ast
     Text _ _ -> res
@@ -82,15 +91,24 @@ makeSelections = go Nil Map.empty
           { name, args }
           sels
 
-  normalizePath :: List (Tuple Arguments String) -> List (VarPathPart a) -> List (Tuple Arguments String)
-  normalizePath res = case _ of
-    VarPathPart { name: (VarPartNameRoot _) } _ : rest -> normalizePath Nil rest
-    VarPathPart { name: (VarPartNameParent _) } _ : rest -> normalizePath (fromMaybe Nil $ tail res) rest
-    VarPathPart { name: (VarPartNameGqlName gqlName _), args } _ : rest ->
-      normalizePath (Tuple (getPartArgs args) gqlName : res) rest
-    _ -> res
+noVariables :: forall a. List (Ast a) -> Boolean
+noVariables = foldl step true
+  where
+  step res = case _ of
+    Var _ _ -> false
+    Each _ ast _ -> res && noVariables ast
+    Text _ _ -> res
 
-  getPartArgs = maybe nilArgs fst
+normalizePath :: forall a. List (Tuple Arguments String) -> List (VarPathPart a) -> List (Tuple Arguments String)
+normalizePath res = case _ of
+  VarPathPart { name: (VarPartNameRoot _) } _ : rest -> normalizePath Nil rest
+  VarPathPart { name: (VarPartNameParent _) } _ : rest -> normalizePath (fromMaybe Nil $ tail res) rest
+  VarPathPart { name: (VarPartNameGqlName gqlName _), args } _ : rest ->
+    normalizePath (Tuple (getPartArgs args) gqlName : res) rest
+  _ -> res
+
+getPartArgs ∷ ∀ (a ∷ Type). Maybe (Tuple Arguments a) → Arguments
+getPartArgs = maybe nilArgs fst
 
 nilArgs :: Arguments
 nilArgs = Arguments Nil
