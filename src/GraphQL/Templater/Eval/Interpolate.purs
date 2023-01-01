@@ -29,13 +29,13 @@ interpolate = go Nil
 
     mergeAst = case _ of
       Ast.Text s _ -> s
-      Ast.Var (VarPath v _) _ -> lookupJson v # displayJson path
+      Ast.Var (VarPath v _) _ -> lookupJsonD v # displayJson path
       Ast.Each (VarPath v _) asts' _ ->
         let
           arr = lookupJson v # caseJsonArray [] identity
         in
           fold $ arr # mapWithIndex \idx _json' ->
-            go (varPathToPositionWithIndex v idx <> path) asts' json
+            go (addJsonIdx idx $ varPathToPosition v <> path) asts' json
 
       where
       lookupJson v = foldl step json fullPath
@@ -52,6 +52,19 @@ interpolate = go Nil
         lookupArr idx = caseJsonArray jsonNull \arr ->
           fromMaybe jsonNull $ arr !! idx
 
+      lookupJsonD v = foldl step json fullPath
+        where
+        step currentJson pos = case pos of
+          Key key -> lookupObj key currentJson
+          Index key idx -> lookupObj key currentJson # lookupArr idx
+
+        fullPath = normalizePos $ varPathToPosition v <> path
+
+        lookupObj key = caseJsonObject jsonNull \obj ->
+          fromMaybe jsonNull $ Object.lookup key obj
+
+        lookupArr idx = caseJsonArray jsonNull \arr ->
+          fromMaybe jsonNull $ arr !! idx
 
 varPathToPosition :: forall f a. Foldable f => f (VarPathPart a) -> List JsonPos
 varPathToPosition path = foldl step Nil path
@@ -61,16 +74,6 @@ varPathToPosition path = foldl step Nil path
     VarPartNameParent _ -> Parent : res
     VarPartNameGqlName gqlName _ ->
       (Pos $ Key $ getKey (maybe nilArgs fst args) gqlName)
-        : res
-
-varPathToPositionWithIndex :: forall f a. Foldable f => f (VarPathPart a) -> Int -> List JsonPos
-varPathToPositionWithIndex path idx = foldl step Nil path
-  where
-  step res (VarPathPart { name, args } _) = case name of
-    VarPartNameRoot _ -> Root : res
-    VarPartNameParent _ -> Parent : res
-    VarPartNameGqlName gqlName _ ->
-      (Pos $ Index (getKey (maybe nilArgs fst args) gqlName) idx) 
         : res
 
 addJsonIdx :: Int -> List JsonPos -> List JsonPos
@@ -104,7 +107,7 @@ normalizePos = go Nil
   go acc = case _ of
     Nil -> acc
     Cons Parent t -> go acc (fromMaybe Nil $ tail t)
-    Cons Root t -> go Nil t
+    Cons Root _t -> go acc Nil
     Cons (Pos pos) t -> go (Cons pos acc) t
 
 displayJson :: List JsonPos -> Json -> String

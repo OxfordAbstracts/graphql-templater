@@ -58,6 +58,18 @@ spec = do
           )
           testJson `shouldEqual` " start 1 a end  start 2 b end "
 
+      it "should interpolate eaches with multilevel lookups" do
+        pure unit
+        interpolate
+          ( Each (mkPath $ pure "arr")
+              ( mkVarNested ("obj" `nelCons` pure "a")
+                  : Nil
+              )
+              unit
+              : Nil
+          )
+          testJson `shouldEqual` "aa"
+
       it "should interpolate nested eaches" do
         pure unit
         interpolate
@@ -101,6 +113,55 @@ spec = do
               : Nil
           )
           testJson `shouldEqual` "truetrue"
+
+      it "should interpolate parents from a nested each" do
+        interpolate
+          ( Each (mkPath $ pure "arr")
+              ( Each (mkPath $ pure "children")
+                  ( Var
+                      ( mkPath' $
+                          { args: Nothing
+                          , name: VarPartNameParent unit
+                          }
+                            `nelCons` pure
+                              { args: Nothing
+                              , name: VarPartNameGqlName "id" unit
+                              }
+                      )
+                      unit
+                      : Nil
+                  )
+                  unit : Nil
+              )
+              unit
+              : Nil
+          )
+          testJson `shouldEqual` "1122"
+
+      it "should interpolate roots from a nested each" do
+        interpolate
+          ( Each (mkPath $ pure "arr")
+              ( Each (mkPath $ pure "children")
+                  ( Var
+                      ( mkPath' $
+                          { args: Nothing
+                          , name: VarPartNameRoot unit
+                          }
+                            `nelCons` pure
+                              { args: Nothing
+                              , name: VarPartNameGqlName "top_level_1" unit
+                              }
+                      )
+                      unit
+                      : Nil
+                  )
+                  unit : Nil
+              )
+              unit
+              : Nil
+          )
+          testJson `shouldEqual` "1111"
+
   where
   mkVar = mkVarNested <<< pure
 
@@ -134,6 +195,7 @@ testJson = encodeJson
   , arr:
       [ { id: 1
         , x: "a"
+        , obj: { a: "a", b: "b" }
         , children:
             [ { y: "a a" }
             , { y: "a b" }
@@ -141,6 +203,7 @@ testJson = encodeJson
         }
       , { id: 2
         , x: "b"
+        , obj: { a: "a", b: "b" }
         , children:
             [ { y: "b a" }
             , { y: "b b" }
