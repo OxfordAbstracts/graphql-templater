@@ -1,7 +1,6 @@
 module Test.GraphQL.Templater.Eval.MakeQuery
   ( spec
-  )
-  where
+  ) where
 
 import Prelude
 
@@ -85,10 +84,9 @@ spec = do
               unit : Nil
           ) `shouldEqualWoWs` Just "query {item { field } }"
 
-
 shouldEqualWoWs :: forall m. MonadThrow Error m => Maybe String -> Maybe String -> m Unit
 shouldEqualWoWs a b = map noWhitespace a `shouldEqual` map noWhitespace b
-  where 
+  where
   noWhitespace = replace rgx ""
 
   rgx = case regex """\s+""" global of

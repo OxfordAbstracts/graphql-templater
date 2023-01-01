@@ -7,7 +7,7 @@ import Data.List (List)
 import Data.Show.Generic (genericShow)
 import Parsing (Position)
 
-data Token 
+data Token
   = OpenBraces
   | CloseBraces
   | OpenParen
@@ -19,7 +19,7 @@ data Token
   | Comma
   | Colon
   | Hash
-  | Else 
+  | Else
   | End
   | Null
   | Boolean Boolean
@@ -29,7 +29,7 @@ data Token
   | WhiteSpace String
   | Literal String
 
-type TokenWithPos = { start :: Position, end :: Position, token :: Token}
+type TokenWithPos = { start :: Position, end :: Position, token :: Token }
 
 type Tokens = List TokenWithPos
 

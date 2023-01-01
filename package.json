@@ -9,7 +9,8 @@
   "scripts": {
     "serve": "spago build && esbuild --bundle index.js --servedir=dist",
     "dev": "esbuild --bundle index.js --outdir=dist --serve index.js --servedir=dist",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "format": "purs-tidy format-in-place src test",
+    "test": "spago test"
   },
   "author": "",
   "license": "ISC",

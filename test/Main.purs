@@ -10,4 +10,4 @@ import Test.Spec.Runner (runSpec)
 main :: Effect Unit
 main = launchAff_ do
   specs <- discover """Test\.GraphQL\.Templater\..*"""
-  runSpec [consoleReporter] specs
+  runSpec [ consoleReporter ] specs

@@ -21,14 +21,14 @@ derive instance Generic (Ast a) _
 
 derive instance Functor Ast
 
-instance Show a => Show (Ast a) where 
+instance Show a => Show (Ast a) where
   show a = genericShow a
 
 data VarPath a = VarPath (NonEmptyList (VarPathPart a)) a
 
 derive instance Functor VarPath
 
-instance Show a => Show (VarPath a) where 
+instance Show a => Show (VarPath a) where
   show a = genericShow a
 
 derive instance Generic (VarPath a) _
@@ -38,11 +38,10 @@ data VarPathPart a = VarPathPart
   , args :: Maybe (Tuple GqlAst.Arguments a)
   }
   a
-  
 
 derive instance Functor VarPathPart
 
-instance Show a => Show (VarPathPart a) where 
+instance Show a => Show (VarPathPart a) where
   show a = genericShow a
 
 derive instance Generic (VarPathPart a) _
@@ -58,7 +57,7 @@ derive instance Eq a => Eq (VarPartName a)
 
 derive instance Ord a => Ord (VarPartName a)
 
-instance Show a => Show (VarPartName a) where 
+instance Show a => Show (VarPartName a) where
   show a = genericShow a
 
 derive instance Generic (VarPartName a) _

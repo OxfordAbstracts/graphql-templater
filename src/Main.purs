@@ -140,8 +140,8 @@ css
        a
 css = class_ <<< ClassName
 
-
-defaultQuery :: String 
-defaultQuery = """{{#each albums.data}}
+defaultQuery :: String
+defaultQuery =
+  """{{#each albums.data}}
 id: {{id}}
 {{title}} by {{user.name}} {{/each}}"""
