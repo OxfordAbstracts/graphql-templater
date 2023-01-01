@@ -58,7 +58,6 @@ spec = do
                               { name: "x"
                               , value: Value_BooleanValue $ wrap true
                               }
-                                
                                 : Nil
                           )
                           unit
@@ -67,9 +66,27 @@ spec = do
               unit
           )
 
-      it "should parse eachs" do
-        parseWoPos "{{test}}" `shouldEqual` Right
-          ( pure $ mkVar "test"
+      it "should parse eaches" do
+        parseWoPos "{{#each a}}text{{/each}}" `shouldEqual` Right
+          ( Each (mkPath $ pure "a")
+              ( Text "text" unit
+                  : Nil
+              )
+              unit
+              : Nil
+          )
+      it "should parse nested eaches" do
+        parseWoPos "{{#each a}}{{#each b}}text{{/each}}{{/each}}" `shouldEqual` Right
+          ( Each (mkPath $ pure "a")
+              ( Each (mkPath $ pure "b")
+                  ( Text "text" unit
+                      : Nil
+                  )
+                  unit
+                  : Nil
+              )
+              unit
+              : Nil
           )
   where
   parseWoPos = parse >>> map (map (map (const unit)))
