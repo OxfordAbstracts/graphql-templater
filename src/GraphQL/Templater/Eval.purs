@@ -15,8 +15,7 @@ import Data.Generic.Rep (class Generic)
 import Data.List (List)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
-import Data.Traversable (for, traverse_)
-import Effect.Aff (Aff)
+import Data.Traversable (for, traverse, traverse_)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import GraphQL.Templater.Ast (Ast)
 import GraphQL.Templater.Cache.FullQuery (FullQueryCache)
@@ -43,38 +42,35 @@ eval
   => { url :: String
      , ast :: List (Ast a)
      }
-  -> m (Either EvalError String)
-eval { url, ast } = case toGqlString ast of
-  Nothing -> pure $ Right "No Query"
-  Just query -> do
-    {fullQueryCache} <- get
-    res <- case Map.lookup query fullQueryCache of
-      Nothing -> do
-        json <- getJsonViaNetwork
-        addResultToCache json
-        pure json
-      Just json -> pure $ Right json
+  -> m (Maybe (Either EvalError String))
+eval { url, ast } = toGqlString ast # traverse \query -> do
+  { fullQueryCache } <- get
+  res <- case Map.lookup query fullQueryCache of
+    Nothing -> do
+      json <- getJsonViaNetwork query
+      addResultToCache query json
+      pure json
+    Just json -> pure $ Right json
 
-    for res \json ->
-      pure $ interpolate ast json
+  for res \json ->
+    pure $ interpolate ast json
 
-    where
-    getJsonViaNetwork :: m (Either EvalError Json)
-    getJsonViaNetwork = liftAff do
-      res <- Affjax.post json url $ Just $ Json $ encodeJson
-        { query
-        }
-      case res of
-        Left err -> pure $ Left $ RequestError err
-        Right { body } -> do
-          case decodeJson body of
-            Left err -> pure $ Left $ DecodeError err
-            Right (gqlRes :: { data :: Json, errors :: Maybe (NonEmptyArray { message :: String }) }) -> do
-              case gqlRes.errors of
-                Just errs -> pure $ Left $ GqlErrors errs
-                Nothing -> pure $ Right gqlRes.data
+  where
+  getJsonViaNetwork :: String -> m (Either EvalError Json)
+  getJsonViaNetwork query = liftAff do
+    res <- Affjax.post json url $ Just $ Json $ encodeJson
+      { query
+      }
+    case res of
+      Left err -> pure $ Left $ RequestError err
+      Right { body } -> do
+        case decodeJson body of
+          Left err -> pure $ Left $ DecodeError err
+          Right (gqlRes :: { data :: Json, errors :: Maybe (NonEmptyArray { message :: String }) }) -> do
+            case gqlRes.errors of
+              Just errs -> pure $ Left $ GqlErrors errs
+              Nothing -> pure $ Right gqlRes.data
 
-
-    addResultToCache = traverse_ \json -> 
-      modify_ \st -> st { fullQueryCache = Map.insert query json st.fullQueryCache }
+  addResultToCache query = traverse_ \json ->
+    modify_ \st -> st { fullQueryCache = Map.insert query json st.fullQueryCache }
 

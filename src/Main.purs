@@ -9,7 +9,7 @@ import Data.GraphQL.AST.Print (printAst)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Effect (Effect)
-import Effect.Aff.Class (class MonadAff, liftAff)
+import Effect.Aff.Class (class MonadAff)
 import Effect.Exception (message)
 import GraphQL.Templater.Eval (eval)
 import GraphQL.Templater.Eval.MakeQuery (toGqlString)
@@ -109,8 +109,9 @@ component =
           res <- eval { ast, url }
           let
             resultStr = case res of
-              Left err -> show err
-              Right query -> query
+              Nothing -> "No query"
+              Just (Left err) -> show err
+              Just (Right query) -> query
 
           H.modify_ _ { result = resultStr }
 
