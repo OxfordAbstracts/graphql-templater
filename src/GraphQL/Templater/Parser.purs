@@ -63,8 +63,8 @@ varPathPartParser = withPositions do
 
 varPartNameParser :: Parser String (VarPartName Positions)
 varPartNameParser = withPositions $
-  (VarPartNameParent <$ string "$parent")
-    <|> (VarPartNameRoot <$ string "$root")
+  (VarPartNameParent <$ string "*parent")
+    <|> (VarPartNameRoot <$ string "*root")
     <|> (VarPartNameGqlName <$> GqlAst.name)
 
 withPositions

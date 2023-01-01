@@ -48,4 +48,4 @@ eval { url, ast } = case toGqlString ast of
             case gqlRes.errors of
               Just errs -> pure $ Left $ GqlErrors errs
               Nothing -> do
-                pure $ Right $ interpolate ast (spy "gqlRes data" gqlRes.data)
+                pure $ Right $ interpolate ast gqlRes.data

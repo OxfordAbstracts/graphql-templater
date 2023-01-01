@@ -4,14 +4,16 @@ module GraphQL.Templater.Eval.Interpolate
 
 import Prelude
 
-import Data.Argonaut.Core (Json, caseJson, caseJsonArray, caseJsonObject, fromObject, jsonNull, stringify)
+import Data.Argonaut.Core (Json, caseJson, caseJsonArray, caseJsonObject, jsonNull)
 import Data.Array ((!!))
 import Data.Foldable (class Foldable, fold)
 import Data.FunctorWithIndex (mapWithIndex)
+import Data.Generic.Rep (class Generic)
 import Data.GraphQL.AST (Arguments)
 import Data.Int (round, toNumber)
-import Data.List (List(..), foldMap, foldl, tail, (:))
-import Data.Maybe (fromMaybe, maybe)
+import Data.List (List(..), foldMap, foldl, tail, uncons, (:))
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Show.Generic (genericShow)
 import Data.Tuple (fst)
 import Foreign.Object as Object
 import GraphQL.Templater.Ast (Ast, VarPartName(..), VarPath(..), VarPathPart(..))
@@ -27,24 +29,29 @@ interpolate = go Nil
 
     mergeAst = case _ of
       Ast.Text s _ -> s
-      Ast.Var (VarPath v _) _ -> lookupJson v # displayJson
+      Ast.Var (VarPath v _) _ -> lookupJson v # displayJson path
       Ast.Each (VarPath v _) asts' _ ->
         let
           arr = lookupJson v # caseJsonArray [] identity
         in
           fold $ arr # mapWithIndex \idx _json' ->
-            go ((Pos $ Index idx) : varPathToPosition v <> path) asts' json
+            go (varPathToPositionWithIndex v idx <> path) asts' json
 
       where
       lookupJson v = foldl step json fullPath
         where
+        step currentJson = case _ of
+          Key key -> lookupObj key currentJson
+          Index key idx -> lookupObj key currentJson # lookupArr idx
+
         fullPath = normalizePos $ varPathToPosition v <> path
 
-        step currentJson = case _ of
-          Key key -> currentJson # caseJsonObject jsonNull \obj ->
-            fromMaybe jsonNull $ Object.lookup key obj
-          Index idx -> currentJson # caseJsonArray jsonNull \arr ->
-            fromMaybe jsonNull $ arr !! idx
+        lookupObj key = caseJsonObject jsonNull \obj ->
+          fromMaybe jsonNull $ Object.lookup key obj
+
+        lookupArr idx = caseJsonArray jsonNull \arr ->
+          fromMaybe jsonNull $ arr !! idx
+
 
 varPathToPosition :: forall f a. Foldable f => f (VarPathPart a) -> List JsonPos
 varPathToPosition path = foldl step Nil path
@@ -56,6 +63,21 @@ varPathToPosition path = foldl step Nil path
       (Pos $ Key $ getKey (maybe nilArgs fst args) gqlName)
         : res
 
+varPathToPositionWithIndex :: forall f a. Foldable f => f (VarPathPart a) -> Int -> List JsonPos
+varPathToPositionWithIndex path idx = foldl step Nil path
+  where
+  step res (VarPathPart { name, args } _) = case name of
+    VarPartNameRoot _ -> Root : res
+    VarPartNameParent _ -> Parent : res
+    VarPartNameGqlName gqlName _ ->
+      (Pos $ Index (getKey (maybe nilArgs fst args) gqlName) idx) 
+        : res
+
+addJsonIdx :: Int -> List JsonPos -> List JsonPos
+addJsonIdx idx l = case uncons l of
+  Just { head: Pos (Key key), tail } -> Cons (Pos $ Index key idx) tail
+  _ -> l
+
 getKey ∷ Arguments → String → String
 getKey args name = fromMaybe name $ getAlias name args
 
@@ -64,23 +86,33 @@ data JsonPos
   | Root
   | Pos NormalizedJsonPos
 
-data NormalizedJsonPos = Key String | Index Int
+derive instance Generic JsonPos _
+
+instance Show JsonPos where
+  show = genericShow
+
+data NormalizedJsonPos = Key String | Index String Int
+
+derive instance Generic NormalizedJsonPos _
+
+instance Show NormalizedJsonPos where
+  show = genericShow
 
 normalizePos :: List JsonPos -> List NormalizedJsonPos
 normalizePos = go Nil
   where
   go acc = case _ of
     Nil -> acc
-    Cons Parent t -> go Nil t
-    Cons Root t -> go (fromMaybe Nil $ tail acc) t
+    Cons Parent t -> go acc (fromMaybe Nil $ tail t)
+    Cons Root t -> go Nil t
     Cons (Pos pos) t -> go (Cons pos acc) t
 
-displayJson :: Json -> String
-displayJson j = caseJson
+displayJson :: List JsonPos -> Json -> String
+displayJson path j = caseJson
   (const "")
   show
   (\n -> if toNumber (round n) == n then show (round n) else show n)
   identity
-  (foldMap displayJson)
-  (fromObject >>> stringify)
+  (foldMap $ displayJson path)
+  (\_ -> show path)
   j

@@ -74,13 +74,33 @@ spec = do
                           : Nil
                       )
                       unit
-                      : Nil
+                  : Nil
               )
               unit
               : Nil
           )
           testJson `shouldEqual` " start 1 a end  start a a end  start a b end  start 2 b end  start b a end  start b b end "
 
+      it "should interpolate parents from an each" do
+        interpolate
+          ( Each (mkPath $ pure "arr")
+              ( Var
+                  ( mkPath' $
+                      { args: Nothing
+                      , name: VarPartNameParent unit
+                      }
+                        `nelCons` pure
+                          { args: Nothing
+                          , name: VarPartNameGqlName "top_level_true" unit
+                          }
+                  )
+                  unit
+                  : Nil
+              )
+              unit
+              : Nil
+          )
+          testJson `shouldEqual` "truetrue"
   where
   mkVar = mkVarNested <<< pure
 
@@ -92,6 +112,15 @@ spec = do
             { args: Nothing
             , name: VarPartNameGqlName str unit
             }
+            unit
+        )
+    )
+    unit
+
+  mkPath' parts = VarPath
+    ( parts <#> \part ->
+        ( VarPathPart
+            part
             unit
         )
     )

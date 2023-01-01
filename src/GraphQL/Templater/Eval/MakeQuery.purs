@@ -1,4 +1,4 @@
-module GraphQL.Templater.Eval.MakeQuery  (getAlias, nilArgs, toGqlString) where
+module GraphQL.Templater.Eval.MakeQuery (getAlias, nilArgs, toGqlString) where
 
 import Prelude
 
@@ -85,7 +85,8 @@ makeSelections topLevelAsts =
         handleCollision (SelectionTree tree) = SelectionTree $ insertPath tree rest
       in
         Map.alter
-          ( Just <<< handleCollision
+          ( Just
+              <<< handleCollision
               <<< fromMaybe (SelectionTree Map.empty)
           )
           { name, args }

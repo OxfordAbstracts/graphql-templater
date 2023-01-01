@@ -107,15 +107,11 @@ component =
         Right ast -> do
           res <- liftAff $ eval { ast, url }
           let
-            resultStr = case spy "res" res of
+            resultStr = case res of
               Left err -> show err
               Right query -> query
 
           H.modify_ _ { result = resultStr }
-    -- resElementMb <- H.getRef resultLabel
-    -- for_ resElementMb \resElement -> do
-    --   unsafeS
-    --   resElement.innerHTML = resultStr
 
     where
     loadSchema = do
