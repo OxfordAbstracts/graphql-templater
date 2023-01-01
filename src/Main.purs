@@ -6,6 +6,7 @@ import Control.Monad.Error.Class (try)
 import Data.Either (Either(..), either)
 import Data.Foldable (intercalate)
 import Data.GraphQL.AST.Print (printAst)
+import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Effect (Effect)
 import Effect.Aff.Class (class MonadAff, liftAff)
@@ -51,6 +52,7 @@ component =
     , template: defaultQuery
     , result: ""
     , document: Nothing
+    , fullQueryCache: Map.empty
     }
 
   render state =
@@ -104,7 +106,7 @@ component =
       case parse template of
         Left _ -> pure unit
         Right ast -> do
-          res <- liftAff $ eval { ast, url }
+          res <- eval { ast, url }
           let
             resultStr = case res of
               Left err -> show err

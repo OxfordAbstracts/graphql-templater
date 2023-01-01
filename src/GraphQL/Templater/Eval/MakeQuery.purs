@@ -15,7 +15,7 @@ import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Tuple (Tuple(..), fst)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..))
 
-data SelectionTree =
+newtype SelectionTree =
   SelectionTree Selections
 
 type Selections = Map { name :: String, args :: Arguments } SelectionTree
