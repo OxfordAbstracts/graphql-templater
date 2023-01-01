@@ -26,7 +26,7 @@ astParser :: Parser String AstPos
 astParser = withPositions $ oneOf
   [ eachP
   , varP
-  , Text <$> textP
+  , textP
   ]
   where
   varP = do
@@ -48,7 +48,7 @@ astParser = withPositions $ oneOf
 
   textP = do
     chars <- try $ many1Till anyChar (lookAhead $ void (string "{{") <|> eof)
-    pure $ toString chars
+    pure $ Text $ toString chars
 
 varPathParser :: Parser String (VarPath Positions)
 varPathParser = withPositions $ VarPath <$> sepBy1 varPathPartParser (char '.')

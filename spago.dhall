@@ -32,6 +32,7 @@ to generate this file without the comments in this block.
   , "integers"
   , "lists"
   , "maybe"
+  , "newtype"
   , "nullable"
   , "ordered-collections"
   , "parsing"

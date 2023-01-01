@@ -21,12 +21,16 @@ derive instance Generic (Ast a) _
 
 derive instance Functor Ast
 
+derive instance Eq a => Eq (Ast a)
+
 instance Show a => Show (Ast a) where
   show a = genericShow a
 
 data VarPath a = VarPath (NonEmptyList (VarPathPart a)) a
 
 derive instance Functor VarPath
+
+derive instance Eq a => Eq (VarPath a)
 
 instance Show a => Show (VarPath a) where
   show a = genericShow a
@@ -40,6 +44,8 @@ data VarPathPart a = VarPathPart
   a
 
 derive instance Functor VarPathPart
+
+derive instance Eq a => Eq (VarPathPart a)
 
 instance Show a => Show (VarPathPart a) where
   show a = genericShow a
