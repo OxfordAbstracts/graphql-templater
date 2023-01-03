@@ -11,10 +11,12 @@ import Data.GraphQL.AST.Print (printAst)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), split)
-import Debug (traceM)
+import Data.Tuple (Tuple(..))
+import Debug (spy)
 import Effect (Effect)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Exception (message)
+import Foreign.Object as Object
 import GraphQL.Templater.Eval (eval)
 import GraphQL.Templater.Eval.MakeQuery (toGqlString)
 import GraphQL.Templater.GetSchema (getGqlDoc)
@@ -53,11 +55,9 @@ component =
     }
   where
   initialState _ =
-    { url: "https://special-perch-47.hasura.app/v1/graphql"
-    , headers: """
-content-type: application/json
-x-hasura-admin-secret:"""
-    , template: defaultQuery
+    { url: initialUrl
+    , headers: spy "initialHeaders" initialHeaders
+    , template: initialQuery
     , result: ""
     , document: Nothing
     , fullQueryCache: Map.empty
@@ -71,7 +71,7 @@ x-hasura-admin-secret:"""
           , HP.value state.url
           , HP.placeholder "Enter graphql endpoint URL"
           ]
-      
+
       , HH.textarea
           [ HP.value state.headers
           , HP.placeholder "Enter headers"
@@ -119,14 +119,13 @@ x-hasura-admin-secret:"""
       H.modify_ _ { headers = headers }
     SetTemplate template -> do
       { url, headers } <- H.modify _ { template = template }
-      traceM { headers }
       case parse template of
         Left _ -> pure unit
         Right ast -> do
           res <- eval
             { ast
             , url
-            , headers: headers # split (Pattern "\n") # mapMaybe \str -> case split (Pattern ":") str of
+            , headers: spy "headers" $ headers # split (Pattern "\n") # mapMaybe \str -> case split (Pattern ":") str of
                 [ key, value ] -> Just $ RequestHeader key value
                 _ -> Nothing
             }
@@ -141,7 +140,12 @@ x-hasura-admin-secret:"""
     where
     loadSchema = do
       st <- H.get
-      doc <- H.liftAff $ try $ getGqlDoc st.url
+      doc <- H.liftAff $ try $ getGqlDoc st.url $ Object.fromFoldable
+        $ st.headers
+            # split (Pattern "\n")
+            # mapMaybe \str -> case split (Pattern ":") str of
+                [ key, value ] -> Just $ Tuple key value
+                _ -> Nothing
       H.modify_ _
         { document = Just $ either
             ( \err ->
@@ -165,8 +169,6 @@ css
        a
 css = class_ <<< ClassName
 
-defaultQuery :: String
-defaultQuery =
-  """{{#each albums.data}}
-id: {{id}}
-{{title}} by {{user.name}} {{/each}}"""
+foreign import initialUrl :: String
+foreign import initialHeaders :: String
+foreign import initialQuery :: String

@@ -8,3 +8,5 @@
 /.purs*
 /.psa*
 /.spago
+config.json
+/dev_config/

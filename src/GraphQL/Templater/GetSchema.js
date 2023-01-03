@@ -1,31 +1,30 @@
 import "isomorphic-fetch";
 import { getIntrospectionQuery, printSchema, buildClientSchema } from "graphql";
 
-export function getGqlSchemaImpl({ url, token }) {
+export function getGqlSchemaImpl({ url, token, headers }) {
   return async () => {
     try {
       const introspectionQuery = getIntrospectionQuery();
 
+      const defaultHeaders = token
+      ? {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        }
+      : {
+          "Content-Type": "application/json",
+        }
+
       const response = await fetch(url, {
         method: "POST",
-        headers: token
-          ? {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            }
-          : {
-              "Content-Type": "application/json",
-            },
+        headers: {...defaultHeaders, ...headers},
         body: JSON.stringify({ query: introspectionQuery }),
+        credentials: "include",
       });
 
       const { data } = await response.json();
 
-      // console.log("data", data)
-
       const schema = printSchema(buildClientSchema(data));
-
-      // console.log({schema})
 
       return schema;
     } catch (err) {
