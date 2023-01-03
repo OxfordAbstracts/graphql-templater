@@ -3,7 +3,9 @@ module GraphQL.Templater.Eval where
 import Prelude
 
 import Affjax.RequestBody (RequestBody(..))
+import Affjax.RequestHeader (RequestHeader(..))
 import Affjax.ResponseFormat (json)
+import Affjax.Web (defaultRequest)
 import Affjax.Web as Affjax
 import Control.Monad.State (class MonadState, get, modify_)
 import Data.Argonaut.Core (Json)
@@ -12,6 +14,7 @@ import Data.Argonaut.Encode (encodeJson)
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
+import Data.HTTP.Method (Method(..))
 import Data.List (List)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
@@ -40,10 +43,11 @@ eval
    . MonadAff m
   => MonadState { fullQueryCache :: FullQueryCache | st } m
   => { url :: String
+     , headers :: Array RequestHeader
      , ast :: List (Ast a)
      }
   -> m (Maybe (Either EvalError String))
-eval { url, ast } = toGqlString ast # traverse \query -> do
+eval { url, headers, ast } = toGqlString ast # traverse \query -> do
   { fullQueryCache } <- get
   res <- case Map.lookup query fullQueryCache of
     Nothing -> do
@@ -58,9 +62,16 @@ eval { url, ast } = toGqlString ast # traverse \query -> do
   where
   getJsonViaNetwork :: String -> m (Either EvalError Json)
   getJsonViaNetwork query = liftAff do
-    res <- Affjax.post json url $ Just $ Json $ encodeJson
-      { query
-      }
+    res <- Affjax.request
+      defaultRequest
+        { method = Left POST
+        , responseFormat = json
+        , url = url
+        , headers = headers
+        , content = Just $ Json $ encodeJson
+            { query
+            }
+        }
     case res of
       Left err -> pure $ Left $ RequestError err
       Right { body } -> do

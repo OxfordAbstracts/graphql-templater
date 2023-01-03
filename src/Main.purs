@@ -2,12 +2,16 @@ module Main (main) where
 
 import Prelude
 
+import Affjax.RequestHeader (RequestHeader(..))
 import Control.Monad.Error.Class (try)
+import Data.Array (mapMaybe)
 import Data.Either (Either(..), either)
 import Data.Foldable (intercalate)
 import Data.GraphQL.AST.Print (printAst)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.String (Pattern(..), split)
+import Debug (traceM)
 import Effect (Effect)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Exception (message)
@@ -34,6 +38,7 @@ main = HA.runHalogenAff do
 data Action
   = Init
   | SetUrl String
+  | SetHeaders String
   | SetTemplate String
 
 component :: forall output m q input. MonadAff m => H.Component q input output m
@@ -48,7 +53,10 @@ component =
     }
   where
   initialState _ =
-    { url: "https://graphqlzero.almansi.me/api"
+    { url: "https://special-perch-47.hasura.app/v1/graphql"
+    , headers: """
+content-type: application/json
+x-hasura-admin-secret:"""
     , template: defaultQuery
     , result: ""
     , document: Nothing
@@ -63,7 +71,13 @@ component =
           , HP.value state.url
           , HP.placeholder "Enter graphql endpoint URL"
           ]
-
+      
+      , HH.textarea
+          [ HP.value state.headers
+          , HP.placeholder "Enter headers"
+          , HE.onValueInput SetHeaders
+          , css "border-2 rounded-md p-1 m-2 h-12 whitespace-pre-wrap"
+          ]
       , HH.textarea
           [ HP.value state.template
           , HP.placeholder "Enter graphql template"
@@ -101,12 +115,21 @@ component =
     SetUrl url -> do
       H.modify_ _ { url = url }
       loadSchema
+    SetHeaders headers -> do
+      H.modify_ _ { headers = headers }
     SetTemplate template -> do
-      { url } <- H.modify _ { template = template }
+      { url, headers } <- H.modify _ { template = template }
+      traceM { headers }
       case parse template of
         Left _ -> pure unit
         Right ast -> do
-          res <- eval { ast, url }
+          res <- eval
+            { ast
+            , url
+            , headers: headers # split (Pattern "\n") # mapMaybe \str -> case split (Pattern ":") str of
+                [ key, value ] -> Just $ RequestHeader key value
+                _ -> Nothing
+            }
           let
             resultStr = case res of
               Nothing -> "No query"
