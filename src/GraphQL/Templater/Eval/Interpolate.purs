@@ -25,7 +25,7 @@ interpolate = go Nil
 
     mergeAst = case _ of
       Ast.Text s _ -> s
-      Ast.Var (VarPath v _) _ -> lookupJsonD v # displayJson path
+      Ast.Var (VarPath v _) _ -> lookupJson v # displayJson path
       Ast.Each (VarPath v _) asts' _ ->
         let
           arr = lookupJson v # caseJsonArray [] identity
@@ -37,20 +37,6 @@ interpolate = go Nil
       lookupJson v = foldl step json fullPath
         where
         step currentJson = case _ of
-          Key key _ -> lookupObj key currentJson
-          Index idx _ -> currentJson # lookupArr idx
-
-        fullPath = normalizePos $ varPathToPosition v <> path
-
-        lookupObj key = caseJsonObject jsonNull \obj ->
-          fromMaybe jsonNull $ Object.lookup key obj
-
-        lookupArr idx = caseJsonArray jsonNull \arr ->
-          fromMaybe jsonNull $ arr !! idx
-
-      lookupJsonD v = foldl step json fullPath
-        where
-        step currentJson pos = case pos of
           Key key _ -> lookupObj key currentJson
           Index idx _ -> currentJson # lookupArr idx
 

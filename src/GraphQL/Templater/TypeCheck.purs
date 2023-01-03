@@ -4,7 +4,7 @@ import Prelude
 
 import Control.Monad.State (execState, modify_)
 import Data.Either (Either(..), either)
-import Data.GraphQL.AST (Arguments(..), ArgumentsDefinition)
+import Data.GraphQL.AST (Arguments, ArgumentsDefinition)
 import Data.Lazy (force)
 import Data.List (List(..), uncons)
 import Data.List.NonEmpty as NonEmpty
@@ -28,7 +28,7 @@ type PositionedError =
   }
 
 getTypeErrorsFromTree :: GqlTypeTree -> List AstPos -> List PositionedError
-getTypeErrorsFromTree typeTree asts' = _.errors $ execState (goAsts asts') initialState
+getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checAsts asts') initialState
   where
   initialState
     :: { errors :: List PositionedError
@@ -39,8 +39,8 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (goAsts asts') initi
     , path: Nil
     }
 
-  goAsts :: List AstPos -> _
-  goAsts asts =
+  checAsts :: List AstPos -> _
+  checAsts asts =
     case uncons asts of
       Nothing -> pure unit
       Just { head: ast, tail } -> do
@@ -55,7 +55,7 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (goAsts asts') initi
                       <> st.errors
                   }
           Each (VarPath v _) inner _p -> do
-            goAsts tail
+            checAsts tail
             modify_ \st ->
               let
                 path' = varPathToPosition v <> st.path
@@ -66,9 +66,9 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (goAsts asts') initi
                       <> st.errors
                   , path = path'
                   }
-            goAsts inner
+            checAsts inner
 
-          Text _ _ -> goAsts tail
+          Text _ _ -> checAsts tail
 
   getPos (VarPathPart _ p) = p
 
