@@ -12,6 +12,7 @@ import Data.List.NonEmpty as NonEmpty
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.String (drop, take)
 import Data.Tuple (Tuple(..), fst)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..))
 
@@ -49,7 +50,9 @@ toGqlSelectionSet (SelectionTree sels) = GqlAst.SelectionSet
         }
 
 getAlias ∷ String → Arguments → Maybe String
-getAlias name args = if args == nilArgs then Nothing else Just $ name <> "__" <> show (hash args)
+getAlias name args = if args == nilArgs then Nothing else Just $ name <> "__" <> removeNegation (show $ hash args)
+  where
+  removeNegation str = if take 1 str == "-" then "N" <> drop 1 str else str
 
 makeSelections :: forall a. List (Ast a) -> Maybe Selections
 makeSelections topLevelAsts =

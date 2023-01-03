@@ -11,6 +11,7 @@ import Data.GraphQL.AST.Print (printAst)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), split)
+import Data.String as String
 import Data.Tuple (Tuple(..))
 import Debug (spy)
 import Effect (Effect)
@@ -105,7 +106,7 @@ component =
       , HH.pre
           [ css "border-2 rounded-md p-1 m-2" ]
           [ HH.text $ case state.document of
-              Just doc -> doc
+              Just doc -> String.take 2000 doc
               Nothing -> "Loading schema"
           ]
       ]
