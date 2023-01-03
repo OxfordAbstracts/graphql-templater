@@ -9,13 +9,13 @@ module GraphQL.Templater.TypeDefs
 import Prelude
 
 import Control.Alt ((<|>))
-import Data.GraphQL.AST (ArgumentsDefinition(..))
+import Data.GraphQL.AST (ArgumentsDefinition)
 import Data.GraphQL.AST as AST
 import Data.Lazy (Lazy, defer, force)
 import Data.List (List(..), mapMaybe)
 import Data.Map (Map, lookup, unions)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
 import Record as Record
@@ -34,10 +34,8 @@ data GqlTypeTree
   | NonNull GqlTypeTree
   | GqlUndefined
 
-getTypeMap :: List AST.TypeDefinition -> TypeMap
-getTypeMap defs = case force <$> (lookup "Query" defMap <|> lookup "query" defMap) of
-  Just (ObjectType query) -> query
-  _ -> Map.empty
+getTypeMap :: List AST.TypeDefinition -> Maybe GqlTypeTree
+getTypeMap defs = force <$> (lookup "Query" defMap <|> lookup "query" defMap)
   where
   defMap = Map.fromFoldable $ defs <#> \def -> Tuple (tdName def) $ defer \_ -> fromAst def
 

@@ -4,28 +4,31 @@ import Prelude
 
 import Control.Monad.State (execState, modify_)
 import Data.Either (Either(..), either)
-import Data.Foldable (foldM, foldMap)
-import Data.GraphQL.AST (ArgumentsDefinition(..))
+import Data.GraphQL.AST (Arguments(..), ArgumentsDefinition)
 import Data.Lazy (force)
-import Data.List (List(..), head, (:))
+import Data.List (List(..), uncons)
+import Data.List.NonEmpty as NonEmpty
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import GraphQL.Templater.Ast (Ast(..), AstPos, VarPath(..), VarPathPart(..))
 import GraphQL.Templater.JsonPos (JsonPos, NormalizedJsonPos(..), normalizePos, varPathToPosition)
 import GraphQL.Templater.Positions (Positions)
-import GraphQL.Templater.TypeDefs (GqlTypeTree(..), TypeMap, getTypeMapFromTree)
-import Unsafe.Coerce (unsafeCoerce)
+import GraphQL.Templater.TypeDefs (GqlTypeTree(..), TypeMap)
 
 data TypeError
-  = FieldNotFound String
-  | FieldNotObject String
-  | FieldNotNode String
-  | FieldNotList String
+  = FieldNotFound
+  | NotObject
+  | NotNode
+  | NotList
 
-type PositionedError = { error :: TypeError, positions :: Positions }
+type PositionedError =
+  { error :: TypeError
+  , path :: List (NormalizedJsonPos Positions)
+  , positions :: Positions
+  }
 
-getTypeErrors :: TypeMap -> List AstPos -> List PositionedError
-getTypeErrors types asts' = _.errors $ execState (goAsts asts') initialState
+getTypeErrorsFromTree :: GqlTypeTree -> List AstPos -> List PositionedError
+getTypeErrorsFromTree typeTree asts' = _.errors $ execState (goAsts asts') initialState
   where
   initialState
     :: { errors :: List PositionedError
@@ -38,63 +41,136 @@ getTypeErrors types asts' = _.errors $ execState (goAsts asts') initialState
 
   goAsts :: List AstPos -> _
   goAsts asts =
-    case head asts of
+    case uncons asts of
       Nothing -> pure unit
-      Just ast -> do
+      Just { head: ast, tail } -> do
         case ast of
-          Var (VarPath v _) p -> modify_ \st -> st
-            { errors = getPathErrors types (normalizePos $ varPathToPosition v <> st.path)
-                <> st.errors
-            }
-          Each v inner p -> pure unit
-          Text _ _ -> pure unit
+          Var (VarPath v _) _p -> do
+            modify_ \st ->
+              let
+                path = normalizePos $ varPathToPosition v <> st.path
+              in
+                st
+                  { errors = getVarPathErrors typeTree (getPos $ NonEmpty.head v) path path
+                      <> st.errors
+                  }
+          Each (VarPath v _) inner _p -> do
+            goAsts tail
+            modify_ \st ->
+              let
+                path' = varPathToPosition v <> st.path
+                path = normalizePos path'
+              in
+                st
+                  { errors = getEachPathErrors typeTree (getPos $ NonEmpty.head v) path path
+                      <> st.errors
+                  , path = path'
+                  }
+            goAsts inner
 
-  getPathErrors
-    :: TypeMap
+          Text _ _ -> goAsts tail
+
+  getPos (VarPathPart _ p) = p
+
+  getEachPathErrors
+    :: GqlTypeTree
+    -> Positions
+    -> List (NormalizedJsonPos Positions)
     -> List (NormalizedJsonPos Positions)
     -> List PositionedError
-  getPathErrors types' = case _ of
-    Nil -> Nil
+  getEachPathErrors types positions fullPath = case _ of
 
-    Cons (Key k p) rest@(Cons _ _) ->
-      lookupType types' k p
-        # either pure \{ args, returns } -> go returns
+    Nil -> go types
       where
+      notList = pure { error: NotList, positions, path: fullPath }
+
+      go :: GqlTypeTree -> List PositionedError
       go = case _ of
-        ObjectType obj -> getPathErrors obj rest
+        ObjectType _ -> notList
         NonNull t -> go t
-        ListType _ -> pure { error: FieldNotObject k, positions: p }
-        Node -> pure { error: FieldNotObject k, positions: p }
-        GqlUndefined -> pure { error: FieldNotObject k, positions: p }
+        ListType _t -> Nil
+        Node -> notList
+        GqlUndefined -> notList
 
-    Cons (Key k p) Nil ->
-      lookupType types' k p
-        # either pure \{ args, returns } -> go returns
+    Cons (Key k p) rest ->
+      getTypeMap k p fullPath types
+        # either pure
+            ( lookupType k p fullPath >>> either pure \{ args, returns } ->
+                getEachPathErrors returns p fullPath rest
+            )
+
+    Cons (Index i p) rest -> go types
       where
-      go =
-        case _ of
-          Node -> Nil
-          NonNull t -> go t
-          _ -> pure { error: FieldNotNode k, positions: p }
+      notList = pure { error: NotList, positions: p, path: fullPath }
+      go = case _ of
+        ListType t -> getEachPathErrors t p fullPath rest
+        NonNull t -> go t
+        ObjectType _ -> notList
+        Node -> notList
+        GqlUndefined -> notList
 
-    Cons (Index i p) rest@(Cons _ _) -> Nil
+  getVarPathErrors
+    :: GqlTypeTree
+    -> Positions
+    -> List (NormalizedJsonPos Positions)
+    -> List (NormalizedJsonPos Positions)
+    -> List PositionedError
+  getVarPathErrors types positions fullPath = case _ of
 
-    Cons (Index i p) Nil -> Nil
-    -- lookupType types' p 
-    --   # either pure \{ args, returns } -> Nil
-    -- case returns of
-    --   ListType t -> case t of 
-    --   _ -> pure { error: FieldNotList k, positions: p }
+    Nil -> go types
+      where
+      notNode = pure { error: NotNode, positions, path: fullPath }
 
-    where
-    lookupType
-      :: TypeMap
-      -> String
-      -> Positions
-      -> Either PositionedError
-           { args :: Maybe ArgumentsDefinition
-           , returns :: GqlTypeTree
-           }
-    lookupType t k p = case force <$> Map.lookup k t of
-      Nothing -> Left { error: FieldNotFound k, positions: p }
-      Just ret -> Right ret
+      go :: GqlTypeTree -> List PositionedError
+      go = case _ of
+        ObjectType _ -> notNode
+        NonNull t -> go t
+        ListType _t -> notNode
+        Node -> Nil
+        GqlUndefined -> notNode
+
+    Cons (Key k p) rest ->
+      getTypeMap k p fullPath types
+        # either pure
+            ( lookupType k p fullPath >>> either pure \{ args, returns } ->
+                getVarPathErrors returns p fullPath rest
+            )
+
+    Cons (Index i p) rest -> go types
+      where
+      notList = pure { error: NotList, positions: p, path: fullPath }
+      go = case _ of
+        ListType t -> getVarPathErrors t p fullPath rest
+        NonNull t -> go t
+        ObjectType _ -> notList
+        Node -> notList
+        GqlUndefined -> notList
+
+  typeCheckArguments :: ArgumentsDefinition -> Arguments -> List PositionedError
+  typeCheckArguments argsDef args = Nil
+
+  lookupType
+    :: String
+    -> Positions
+    -> List (NormalizedJsonPos Positions)
+    -> TypeMap
+    -> Either PositionedError
+         { args :: Maybe ArgumentsDefinition
+         , returns :: GqlTypeTree
+         }
+  lookupType k p path t = case force <$> Map.lookup k t of
+    Nothing -> Left { error: FieldNotFound, positions: p, path }
+    Just ret -> Right ret
+
+  getTypeMap
+    :: String
+    -> Positions
+    -> List (NormalizedJsonPos Positions)
+    -> GqlTypeTree
+    -> Either PositionedError TypeMap
+  getTypeMap k p path = case _ of
+    ObjectType obj -> Right obj
+    NonNull t -> getTypeMap k p path t
+    ListType _t -> Left { error: NotObject, positions: p, path }
+    Node -> Left { error: NotObject, positions: p, path }
+    GqlUndefined -> Left { error: NotObject, positions: p, path }
