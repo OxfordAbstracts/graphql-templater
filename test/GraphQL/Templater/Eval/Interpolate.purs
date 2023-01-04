@@ -161,6 +161,12 @@ spec = do
               : Nil
           )
           testJson `shouldEqual` "1111"
+      it "should lookup up the first object in an array when an object lookup is on an array" do
+        interpolate
+          ( mkVarNested ("arr" `nelCons` pure "id")
+              : Nil
+          )
+          testJson `shouldEqual` "1"
 
   where
   mkVar = mkVarNested <<< pure

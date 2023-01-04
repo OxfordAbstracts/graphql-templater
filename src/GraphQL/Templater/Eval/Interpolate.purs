@@ -10,7 +10,7 @@ import Data.Foldable (fold)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Int (round, toNumber)
 import Data.List (List(..), foldMap, foldl)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, maybe)
 import Foreign.Object as Object
 import GraphQL.Templater.Ast (Ast, VarPath(..))
 import GraphQL.Templater.Ast as Ast
@@ -42,8 +42,14 @@ interpolate = go Nil
 
         fullPath = normalizePos $ varPathToPosition v <> path
 
-        lookupObj key = caseJsonObject jsonNull \obj ->
-          fromMaybe jsonNull $ Object.lookup key obj
+        lookupObj key = caseJson 
+          (const jsonNull)
+          (const jsonNull)
+          (const jsonNull)
+          (const jsonNull)
+          (\arr -> maybe jsonNull (lookupObj key) $ arr !! 0 )
+          \obj ->
+            fromMaybe jsonNull $ Object.lookup key obj
 
         lookupArr idx = caseJsonArray jsonNull \arr ->
           fromMaybe jsonNull $ arr !! idx
