@@ -51,7 +51,10 @@ getKey ∷ Arguments → String → String
 getKey args name = fromMaybe name $ getAlias name args
 
 derive instance Generic (JsonPos a) _
+
 derive instance Functor JsonPos
+
+derive instance Eq a => Eq (JsonPos a)
 
 instance Show a => Show (JsonPos a) where
   show = genericShow
@@ -59,6 +62,8 @@ instance Show a => Show (JsonPos a) where
 derive instance Functor NormalizedJsonPos
 
 derive instance Generic (NormalizedJsonPos a) _
+
+derive instance Eq a => Eq (NormalizedJsonPos a)
 
 instance Show a => Show (NormalizedJsonPos a) where
   show = genericShow

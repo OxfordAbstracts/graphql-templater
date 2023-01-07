@@ -11,8 +11,6 @@ module GraphQL.Templater.TypeDefs
 import Prelude
 
 import Control.Alt ((<|>))
-import Data.Array.NonEmpty as Array
-import Data.Foldable (class Foldable)
 import Data.GraphQL.AST (ArgumentsDefinition, OperationType(..))
 import Data.GraphQL.AST as AST
 import Data.Lazy (Lazy, defer, force)
@@ -27,7 +25,6 @@ import Data.Newtype (unwrap, wrap)
 import Data.Profunctor.Choice (class Choice)
 import Data.String (stripSuffix)
 import Data.Tuple (Tuple(..), uncurry)
-import Foreign.Object as Object
 import Record as Record
 import Type.Proxy (Proxy(..))
 
@@ -44,8 +41,6 @@ data GqlTypeTree
   | ListType GqlTypeTree
   | NonNull GqlTypeTree
   | GqlUndefined
-
-
 
 getTypeAtPath :: List String -> GqlTypeTree -> Maybe GqlTypeTree
 getTypeAtPath path tree = case path of
