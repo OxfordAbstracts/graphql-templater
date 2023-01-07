@@ -4,12 +4,14 @@ import Prelude
 
 import Control.Monad.State (execState, modify_)
 import Data.Either (Either(..), either)
+import Data.Generic.Rep (class Generic)
 import Data.GraphQL.AST (Arguments, ArgumentsDefinition)
 import Data.Lazy (force)
 import Data.List (List(..), uncons)
 import Data.List.NonEmpty as NonEmpty
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
+import Data.Show.Generic (genericShow)
 import GraphQL.Templater.Ast (Ast(..), AstPos, VarPath(..), VarPathPart(..))
 import GraphQL.Templater.JsonPos (JsonPos, NormalizedJsonPos(..), normalizePos, varPathToPosition)
 import GraphQL.Templater.Positions (Positions)
@@ -20,6 +22,11 @@ data TypeError
   | NotObject
   | NotNode
   | NotList
+
+derive instance Generic TypeError _
+derive instance Eq TypeError
+instance Show TypeError where
+  show = genericShow
 
 type PositionedError =
   { error :: TypeError
@@ -89,7 +96,7 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checAsts asts') ini
         ObjectType _ -> notList
         NonNull t -> go t
         ListType _t -> Nil
-        Node -> notList
+        Node _ -> notList
         GqlUndefined -> notList
 
     Cons (Key k p) rest ->
@@ -106,7 +113,7 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checAsts asts') ini
         ListType t -> getEachPathErrors t p fullPath rest
         NonNull t -> go t
         ObjectType _ -> notList
-        Node -> notList
+        Node _ -> notList
         GqlUndefined -> notList
 
   getVarPathErrors
@@ -126,7 +133,7 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checAsts asts') ini
         ObjectType _ -> notNode
         NonNull t -> go t
         ListType _t -> notNode
-        Node -> Nil
+        Node _ -> Nil
         GqlUndefined -> notNode
 
     Cons (Key k p) rest ->
@@ -143,7 +150,7 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checAsts asts') ini
         ListType t -> getVarPathErrors t p fullPath rest
         NonNull t -> go t
         ObjectType _ -> notList
-        Node -> notList
+        Node _ -> notList
         GqlUndefined -> notList
 
   typeCheckArguments :: ArgumentsDefinition -> Arguments -> List PositionedError
@@ -171,6 +178,6 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checAsts asts') ini
   getTypeMap k p path = case _ of
     ObjectType obj -> Right obj
     NonNull t -> getTypeMap k p path t
-    ListType _t -> Left { error: NotObject, positions: p, path }
-    Node -> Left { error: NotObject, positions: p, path }
+    ListType t -> getTypeMap k p path t
+    Node _ -> Left { error: NotObject, positions: p, path }
     GqlUndefined -> Left { error: NotObject, positions: p, path }

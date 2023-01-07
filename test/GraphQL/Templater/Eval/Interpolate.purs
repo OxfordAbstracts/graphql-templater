@@ -18,13 +18,12 @@ spec :: Spec Unit
 spec = do
   describe "GraphQL.Templater.Eval.Interpolate" do
     describe "interpolate" do
+
       it "should return the same text when there are no variables" do
-        pure unit
         interpolate Nil testJson `shouldEqual` ""
         interpolate (Text "test" unit : Nil) testJson `shouldEqual` "test"
 
       it "should interpolate top level variables" do
-        pure unit
         interpolate
           ( mkVar "top_level_1"
               : Text " " unit
@@ -34,7 +33,6 @@ spec = do
           testJson `shouldEqual` "1 true"
 
       it "should interpolate nested variables" do
-        pure unit
         interpolate
           ( mkVarNested ("obj" `nelCons` pure "a")
               : Text " " unit
@@ -42,8 +40,8 @@ spec = do
               : Nil
           )
           testJson `shouldEqual` "a b"
+
       it "should interpolate eaches" do
-        pure unit
         interpolate
           ( Each (mkPath $ pure "arr")
               ( Text " start " unit
@@ -59,7 +57,6 @@ spec = do
           testJson `shouldEqual` " start 1 a end  start 2 b end "
 
       it "should interpolate eaches with multilevel lookups" do
-        pure unit
         interpolate
           ( Each (mkPath $ pure "arr")
               ( mkVarNested ("obj" `nelCons` pure "a")
@@ -71,7 +68,6 @@ spec = do
           testJson `shouldEqual` "aa"
 
       it "should interpolate nested eaches" do
-        pure unit
         interpolate
           ( Each (mkPath $ pure "arr")
               ( Text " start " unit
@@ -161,6 +157,7 @@ spec = do
               : Nil
           )
           testJson `shouldEqual` "1111"
+
       it "should lookup up the first object in an array when an object lookup is on an array" do
         interpolate
           ( mkVarNested ("arr" `nelCons` pure "id")

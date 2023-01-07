@@ -4,7 +4,7 @@ module GraphQL.Templater.Eval.Interpolate
 
 import Prelude
 
-import Data.Argonaut.Core (Json, caseJson, caseJsonArray, caseJsonObject, jsonNull)
+import Data.Argonaut.Core (Json, caseJson, caseJsonArray, jsonNull)
 import Data.Array ((!!))
 import Data.Foldable (fold)
 import Data.FunctorWithIndex (mapWithIndex)

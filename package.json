@@ -8,7 +8,7 @@
   },
   "scripts": {
     "serve": "spago build && esbuild --bundle index.js --servedir=dist",
-    "dev": "esbuild --bundle index.js --outdir=dist --serve index.js --servedir=dist",
+    "dev": "node dev",
     "format": "purs-tidy format-in-place src test",
     "test": "spago test"
   },

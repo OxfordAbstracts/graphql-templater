@@ -41,6 +41,8 @@ to generate this file without the comments in this block.
   , "parsing"
   , "partial"
   , "prelude"
+  , "profunctor"
+  , "profunctor-lenses"
   , "record"
   , "record-extra"
   , "spec"
