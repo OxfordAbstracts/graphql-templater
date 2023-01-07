@@ -33,13 +33,12 @@ spec = do
         testTree tree [ "users", "friends", "name" ] (Node "String")
 
         testTree tree [ "user" ]
-          (
-              ( ObjectType $ Map.fromFoldable
-                  [ Tuple "friends" $ unsafeCoerce unit
-                  , Tuple "id" $ unsafeCoerce unit
-                  , Tuple "name" $ unsafeCoerce unit
-                  ]
-              )
+          ( ( ObjectType $ Map.fromFoldable
+                [ Tuple "friends" stub
+                , Tuple "id" stub
+                , Tuple "name" stub
+                ]
+            )
           )
 
       it "should return a nested type map for a schema with unions" do
@@ -52,6 +51,8 @@ spec = do
         testTree tree [ "media", "title" ] (Node "String")
 
   where
+  stub = unsafeCoerce unit
+
   parseDoc str = runParser str document # throwParser
 
   testTree tree path result =
