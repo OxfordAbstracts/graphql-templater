@@ -58,6 +58,22 @@ spec = do
               , start: (Position { column: 7, index: 6, line: 1 })
               } : Nil
           )
+      it "should return multiple errors for multiple incorrect field lookups" do
+        let
+          template = "text{{bar}}text{{baz}}text"
+
+        errors <- typeCheckNoPos usersSchema template
+        errors `shouldEqual`
+          ( TypeErrorWithPath FieldNotFound
+              ( (Key "baz" unit) : Nil
+              )
+              unit
+              : TypeErrorWithPath FieldNotFound
+                  ( (Key "bar" unit) : Nil
+                  )
+                  unit
+              : Nil
+          )
 
       it "should return no errors for a nested lookup in a recursive schema" do
         let
@@ -112,14 +128,32 @@ spec = do
           template = "{{#each users}}{{top_level}}{{/each}}"
 
         errors <- typeCheckNoPos usersSchema template
-        errors `shouldEqual` ((TypeErrorWithPath FieldNotFound ((Key "users" unit) : (Key "top_level" unit) : Nil) unit) : Nil)
+        errors `shouldEqual`
+          ( ( TypeErrorWithPath FieldNotFound
+                ( (Key "users" unit)
+                    : (Key "top_level" unit)
+                    : Nil
+                )
+                unit
+            ) : Nil
+          )
 
       it "should return an error for an invalid nested variable in an each" do
         let
-          template = "{{#each users}}{{friends.invalid}}{{/each}}"
+          template = "{{#each user(id: 1).friends}}{{friends.invalid}}{{/each}}"
 
         errors <- typeCheckNoPos usersSchema template
-        errors `shouldEqual` ((TypeErrorWithPath FieldNotFound ((Key "users" unit) : (Key "friends" unit) : (Key "invalid" unit) : Nil) unit) : Nil)
+        errors `shouldEqual`
+          ( ( TypeErrorWithPath FieldNotFound
+                ( (Key "user" unit)
+                    : (Key "friends" unit)
+                    : (Key "friends" unit)
+                    : (Key "invalid" unit)
+                    : Nil
+                )
+                unit
+            ) : Nil
+          )
 
 simpleSchema ∷ String
 simpleSchema =

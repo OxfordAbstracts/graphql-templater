@@ -108,7 +108,7 @@ component =
           ]
 
       , HH.div []
-          case asts, spy "schemaTypeTree" $ state.schemaTypeTree of
+          case asts, state.schemaTypeTree of
             Right Nil, _ -> []
             Right asts', Just typeTree ->
               [ HH.div [] [ HH.text "Errors:" ]
@@ -116,7 +116,7 @@ component =
                   [ HP.ref resultLabel
                   , css "border-2 rounded-md p-1 m-2 whitespace-pre-wrap"
                   ]
-                  [ HH.text $ show $ getTypeErrorsFromTree typeTree asts' ]
+                  [ HH.text $ show $ spy ("type errors\n\n " <> state.template) $ getTypeErrorsFromTree (spy "typeTree" typeTree) asts' ]
               ]
             _, _ -> []
 

@@ -27,7 +27,7 @@ toGqlString = astToGqlOperationDefinition >>> map printAst
 astToGqlOperationDefinition :: forall a. List (Ast a) -> Maybe GqlAst.OperationDefinition
 astToGqlOperationDefinition =
   makeSelections
-    >>> map (SelectionTree >>> toGqlOperationDefinition)
+    >>> map (SelectionTree >>> addTypenames >>> toGqlOperationDefinition)
 
 toGqlOperationDefinition :: SelectionTree -> GqlAst.OperationDefinition
 toGqlOperationDefinition (SelectionTree sels) = GqlAst.OperationDefinition_OperationType
@@ -62,35 +62,36 @@ makeSelections topLevelAsts =
     Just $ go Nil Map.empty topLevelAsts
 
   where
+
   go :: List (Tuple Arguments String) -> Selections -> List (Ast a) -> Selections
   go ancestors = foldl (step ancestors)
 
   step :: List (Tuple Arguments String) -> Selections -> (Ast a) -> Selections
   step ancestors res = case _ of
-    Var (VarPath v _) _ -> normalizeAndInsertPath ancestors res v
+    Var (VarPath v _) _ -> normalizeAndInsertPath false ancestors res v
     Each (VarPath v _) ast _ ->
       go (normalizePath ancestors (NonEmpty.toList v))
-        (normalizeAndInsertPath ancestors res v)
+        (normalizeAndInsertPath true ancestors res v)
         ast
     Text _ _ -> res
 
-  normalizeAndInsertPath ancestors res v =
+  normalizeAndInsertPath withTypename ancestors res v =
     let
       path = normalizePath ancestors (NonEmpty.toList v)
     in
-      insertPath res (reverse path)
+      insertPath withTypename res (reverse path)
 
-  insertPath :: Selections -> List (Tuple Arguments String) -> Selections
-  insertPath sels = case _ of
+  insertPath :: Boolean -> Selections -> List (Tuple Arguments String) -> Selections
+  insertPath withTypename sels = case _ of
     Nil -> sels
     Tuple args name : rest ->
       let
-        handleCollision (SelectionTree tree) = SelectionTree $ insertPath tree rest
+        handleCollision (SelectionTree tree) = SelectionTree $ insertPath withTypename tree rest
       in
         Map.alter
           ( Just
               <<< handleCollision
-              <<< fromMaybe (SelectionTree Map.empty)
+              <<< fromMaybe (SelectionTree if withTypename then typenameMap else Map.empty)
           )
           { name, args }
           sels
@@ -113,6 +114,18 @@ normalizePath res = case _ of
 
 getPartArgs ∷ ∀ (a ∷ Type). Maybe (Tuple Arguments a) → Arguments
 getPartArgs = maybe nilArgs fst
+
+addTypenames :: SelectionTree -> SelectionTree
+addTypenames selTree@(SelectionTree s) =
+  if Map.isEmpty s then
+    selTree
+  else
+    SelectionTree
+      $ Map.union typenameMap s
+          <#> addTypenames
+
+typenameMap :: Selections
+typenameMap = Map.singleton { args: nilArgs, name: "__typename" } (SelectionTree Map.empty)
 
 nilArgs :: Arguments
 nilArgs = Arguments Nil

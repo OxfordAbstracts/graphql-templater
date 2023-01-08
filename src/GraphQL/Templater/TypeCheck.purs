@@ -45,7 +45,7 @@ instance Show a => Show (TypeErrorWithPath a) where
   show = genericShow
 
 getTypeErrorsFromTree :: GqlTypeTree -> List AstPos -> List PositionedError
-getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checAsts asts') initialState
+getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checkAsts asts') initialState
   where
   initialState
     :: { errors :: List PositionedError
@@ -56,8 +56,8 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checAsts asts') ini
     , path: Nil
     }
 
-  checAsts :: List AstPos -> _
-  checAsts asts =
+  checkAsts :: List AstPos -> _
+  checkAsts asts =
     case uncons asts of
       Nothing -> pure unit
       Just { head: ast, tail } -> do
@@ -71,8 +71,9 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checAsts asts') ini
                   { errors = getVarPathErrors typeTree (getPos $ NonEmpty.head v) path path
                       <> st.errors
                   }
+            checkAsts tail
           Each (VarPath v _) inner _p -> do
-            checAsts tail
+            checkAsts tail
             modify_ \st ->
               let
                 path' = varPathToPositionWoArgs v <> st.path
@@ -83,9 +84,9 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checAsts asts') ini
                       <> st.errors
                   , path = path'
                   }
-            checAsts inner
+            checkAsts inner
 
-          Text _ _ -> checAsts tail
+          Text _ _ -> checkAsts tail
 
   getPos (VarPathPart _ p) = p
 
@@ -118,7 +119,7 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checAsts asts') ini
                 getEachPathErrors returns p fullPath rest
             )
 
-    Cons (Index i p) rest -> go types
+    Cons (Index _i p) rest -> go types
       where
       notList = pure $ TypeErrorWithPath NotList fullPath positions
       go = case _ of
@@ -155,7 +156,7 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checAsts asts') ini
                 getVarPathErrors returns p fullPath rest
             )
 
-    Cons (Index i p) rest -> go types
+    Cons (Index _i p) rest -> go types
       where
       notList = pure $ TypeErrorWithPath NotList fullPath positions
       -- pure { error: NotList, positions: p, path: fullPath }
