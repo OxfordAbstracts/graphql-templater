@@ -53,6 +53,8 @@ to generate this file without the comments in this block.
   , "unicode"
   , "unordered-collections"
   , "unsafe-coerce"
+  , "web-html"
+  , "web-storage"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]

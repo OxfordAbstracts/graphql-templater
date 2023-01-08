@@ -15,7 +15,6 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), split)
 import Data.String as String
 import Data.Tuple (Tuple(..))
-import Debug (spy)
 import Effect (Effect)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Exception (message)
@@ -116,7 +115,7 @@ component =
                   [ HP.ref resultLabel
                   , css "border-2 rounded-md p-1 m-2 whitespace-pre-wrap"
                   ]
-                  [ HH.text $ show $ spy ("type errors\n\n " <> state.template) $ getTypeErrorsFromTree (spy "typeTree" typeTree) asts' ]
+                  [ HH.text $ show $ getTypeErrorsFromTree typeTree asts' ]
               ]
             _, _ -> []
 

@@ -8,20 +8,26 @@ import Control.Promise as Promise
 import Data.Either (Either(..))
 import Data.GraphQL.AST (Document)
 import Data.GraphQL.Parser (document)
-import Data.Nullable (Nullable, null)
+import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Aff (Aff, Error, error, throwError)
 import Foreign.Object (Object)
+import GraphQL.Templater.Cache.Schema (getCachedSchema, setCachedSchema)
 import Parsing (parseErrorMessage, runParser)
 
 getGqlDoc :: String -> Object String -> Aff Document
 getGqlDoc url headers = do
-  schema <- Promise.toAffE $ getGqlSchemaImpl
-    { url
-    , token: null
-    , headers
-    }
-  rethrow parseErrorMessage $ runParser schema document
+  cacheMb <- getCachedSchema { url, headers }
+  case cacheMb of
+    Just schema -> pure schema
+    Nothing -> do
+      schema <- Promise.toAffE $ getGqlSchemaImpl
+        { url
+        , headers
+        }
+      res <- rethrow parseErrorMessage $ runParser schema document
+      setCachedSchema { url, headers } res
+      pure res
 
 rethrow :: forall err m a. MonadThrow Error m => (err -> String) -> Either err a -> m a
 rethrow fn = case _ of
@@ -30,7 +36,6 @@ rethrow fn = case _ of
 
 foreign import getGqlSchemaImpl
   :: { url :: String
-     , token :: Nullable String
      , headers :: Object String
      }
   -> Effect (Promise String)

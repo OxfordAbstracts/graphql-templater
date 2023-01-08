@@ -106,6 +106,8 @@ in  upstream
   with graphql-parser =
     { dependencies =
         [ "aff"
+        , "argonaut-codecs"
+        , "argonaut-generic"
         , "arrays"
         , "console"
         , "control"
@@ -137,5 +139,5 @@ in  upstream
     , repo =
         "https://github.com/OxfordAbstracts/purescript-graphql-parser.git"
     , version =
-        "31c6ae0"
+        "6c59c45"
     }

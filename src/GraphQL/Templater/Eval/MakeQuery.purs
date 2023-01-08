@@ -56,7 +56,7 @@ getAlias name args = if args == nilArgs then Nothing else Just $ name <> "__" <>
 
 makeSelections :: forall a. List (Ast a) -> Maybe Selections
 makeSelections topLevelAsts =
-  if noVariables topLevelAsts then
+  if not hasQuery topLevelAsts then
     Nothing
   else
     Just $ go Nil Map.empty topLevelAsts
@@ -96,12 +96,12 @@ makeSelections topLevelAsts =
           { name, args }
           sels
 
-noVariables :: forall a. List (Ast a) -> Boolean
-noVariables = foldl step true
+hasQuery :: forall a. List (Ast a) -> Boolean
+hasQuery = foldl step false
   where
   step res = case _ of
-    Var _ _ -> false
-    Each _ ast _ -> res && noVariables ast
+    Var _ _ -> true
+    Each _ ast _ -> true
     Text _ _ -> res
 
 normalizePath :: forall a. List (Tuple Arguments String) -> List (VarPathPart a) -> List (Tuple Arguments String)
