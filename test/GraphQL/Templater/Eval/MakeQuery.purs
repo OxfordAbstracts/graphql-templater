@@ -26,7 +26,7 @@ spec = do
         toGqlString Nil `shouldEqual` Nothing
         toGqlString (Text "" unit : Nil) `shouldEqual` Nothing
 
-      it "should return Nothing for an ast without variables" do
+      it "should return a query with only __typenames for an each without variables" do
         toGqlString
           ( Each
               ( VarPath
@@ -41,7 +41,7 @@ spec = do
               ( Text "text" unit : Nil
               )
               unit : Nil
-          ) `shouldEqual` Nothing
+          ) `shouldEqualWoWs` Just "query {  __typename test {  __typename } } "
 
       it "should return a graphql query when for a simple variable ast" do
         toGqlString

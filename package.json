@@ -17,8 +17,7 @@
   "dependencies": {
     "graphql": "^16.6.0",
     "isomorphic-fetch": "^3.0.0",
-    "lz-string": "^1.4.4",
-    "xhr2": "^0.2.1"
+    "lz-string": "^1.4.4"
   },
   "devDependencies": {
     "esbuild": "^0.16.10"
