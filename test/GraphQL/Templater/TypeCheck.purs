@@ -155,19 +155,19 @@ spec = do
             ) : Nil
           )
 
-      -- it "should return an error for a non existant argument" do
-      --   let
-      --     template = "{{user(invalid: 1).id}}"
+      it "should return an error for a not found argument" do
+        let
+          template = "{{user(invalid: 1).id}}"
 
-      --   errors <- typeCheckNoPos usersSchema template
-      --   errors `shouldEqual`
-      --     ( ( TypeErrorWithPath (ArgTypeError (ArgNotFound "invalid"))
-      --           ( (Key "user" unit)
-      --               : Nil
-      --           )
-      --           unit
-      --       ) : Nil
-      --     )
+        errors <- typeCheckNoPos usersSchema template
+        errors `shouldEqual`
+          ( ( TypeErrorWithPath (ArgTypeError (ArgNotFound "invalid"))
+                ( (Key "user" unit)
+                    : Nil
+                )
+                unit
+            ) : Nil
+          )
 
 simpleSchema ∷ String
 simpleSchema =

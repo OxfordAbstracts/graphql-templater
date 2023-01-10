@@ -54,7 +54,6 @@ data ArgTypeError
       , expected :: String
       , actual :: String
       }
-  
 
 derive instance Generic ArgTypeError _
 derive instance Eq ArgTypeError
@@ -85,7 +84,7 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checkAsts asts') in
                 path = normalizePos $ varPathToPositionWoArgs v <> st.path
               in
                 st
-                  { errors = getVarPathErrors typeTree (getPos $ NonEmpty.head v) path path
+                  { errors = getVarPathErrors path (getPos $ NonEmpty.head v) typeTree path
                       <> st.errors
                   }
             checkAsts tail
@@ -97,7 +96,7 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checkAsts asts') in
                 path = normalizePos path'
               in
                 st
-                  { errors = getEachPathErrors typeTree (getPos $ NonEmpty.head v) path path
+                  { errors = getEachPathErrors path (getPos $ NonEmpty.head v) typeTree path
                       <> st.errors
                   , path = path'
                   }
@@ -108,77 +107,56 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checkAsts asts') in
   getPos (VarPathPart _ p) = p
 
   getEachPathErrors
-    :: GqlTypeTree
+    :: List (NormalizedJsonPos Positions)
     -> Positions
-    -> List (NormalizedJsonPos Positions)
+    -> GqlTypeTree
     -> List (NormalizedJsonPos Positions)
     -> List PositionedError
-  getEachPathErrors types positions fullPath = case _ of
+  getEachPathErrors fullPath positions = getErrors fullPath positions go
+    where
+    notList = pure $ TypeErrorWithPath NotList fullPath positions
 
-    Nil -> go types
-      where
-      notList = pure $ TypeErrorWithPath NotList fullPath positions
-
-      --  { error: NotList, positions, path: fullPath }
-
-      go :: GqlTypeTree -> List PositionedError
-      go = case _ of
-        ObjectType _ -> notList
-        NonNull t -> go t
-        ListType _t -> Nil
-        Node _ -> notList
-        GqlUndefined -> notList
-
-    Cons (Key k p) rest ->
-      getTypeMap k p fullPath types
-        # either pure
-            ( lookupType k p fullPath >>> either pure \{ args, returns } ->
-                getEachPathErrors returns p fullPath rest
-            )
-
-    Cons (Index _i p) rest -> go types
-      where
-      notList = pure $ TypeErrorWithPath NotList fullPath positions
-      go = case _ of
-        ListType t -> getEachPathErrors t p fullPath rest
-        NonNull t -> go t
-        ObjectType _ -> notList
-        Node _ -> notList
-        GqlUndefined -> notList
+    go :: GqlTypeTree -> List PositionedError
+    go = case _ of
+      ObjectType _ -> notList
+      NonNull t -> go t
+      ListType _t -> Nil
+      Node _ -> notList
+      GqlUndefined -> notList
 
   getVarPathErrors
-    :: GqlTypeTree
+    :: List (NormalizedJsonPos Positions)
     -> Positions
-    -> List (NormalizedJsonPos Positions)
+    -> GqlTypeTree
     -> List (NormalizedJsonPos Positions)
     -> List PositionedError
-  getVarPathErrors types positions fullPath = case _ of
+  getVarPathErrors fullPath positions = getErrors fullPath positions go
+    where
+    notNode = pure $ TypeErrorWithPath NotNode fullPath positions
 
-    Nil -> go types
-      where
-      notNode = pure $ TypeErrorWithPath NotNode fullPath positions
+    go = case _ of
+      ObjectType _ -> notNode
+      NonNull t -> go t
+      ListType _t -> notNode
+      Node _ -> Nil
+      GqlUndefined -> notNode
 
-      go :: GqlTypeTree -> List PositionedError
-      go = case _ of
-        ObjectType _ -> notNode
-        NonNull t -> go t
-        ListType _t -> notNode
-        Node _ -> Nil
-        GqlUndefined -> notNode
+  getErrors fullPath positions atPathEnd types = case _ of
+
+    Nil -> atPathEnd types
 
     Cons (Key k p) rest ->
       getTypeMap k p fullPath types
         # either pure
             ( lookupType k p fullPath >>> either pure \{ args, returns } ->
-                getVarPathErrors returns p fullPath rest
+                getErrors fullPath p atPathEnd returns rest
             )
 
     Cons (Index _i p) rest -> go types
       where
       notList = pure $ TypeErrorWithPath NotList fullPath positions
-      -- pure { error: NotList, positions: p, path: fullPath }
       go = case _ of
-        ListType t -> getVarPathErrors t p fullPath rest
+        ListType t -> getErrors fullPath p atPathEnd t rest
         NonNull t -> go t
         ObjectType _ -> notList
         Node _ -> notList
@@ -219,8 +197,6 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checkAsts asts') in
       VarPartNameGqlName gqlName a ->
         (Pos $ Key (gqlName) a)
           : res
-
-
 
 typeCheckArguments :: ArgumentsDefinition -> Arguments -> List ArgTypeError
 typeCheckArguments argsDef args = Nil
