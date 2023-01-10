@@ -10,7 +10,7 @@ import Data.Maybe (fromMaybe)
 import Effect.Exception (Error, error)
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
 import GraphQL.Templater.Parser (parse)
-import GraphQL.Templater.TypeCheck (PositionedError, TypeError(..), TypeErrorWithPath(..), getTypeErrorsFromTree)
+import GraphQL.Templater.TypeCheck (ArgTypeError(..), PositionedError, TypeError(..), TypeErrorWithPath(..), getTypeErrorsFromTree)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeTreeFromDoc)
 import Parsing (ParseError, Position(..), parseErrorMessage, runParser)
 import Test.Spec (Spec, describe, it)
@@ -154,6 +154,20 @@ spec = do
                 unit
             ) : Nil
           )
+
+      -- it "should return an error for a non existant argument" do
+      --   let
+      --     template = "{{user(invalid: 1).id}}"
+
+      --   errors <- typeCheckNoPos usersSchema template
+      --   errors `shouldEqual`
+      --     ( ( TypeErrorWithPath (ArgTypeError (ArgNotFound "invalid"))
+      --           ( (Key "user" unit)
+      --               : Nil
+      --           )
+      --           unit
+      --       ) : Nil
+      --     )
 
 simpleSchema ∷ String
 simpleSchema =

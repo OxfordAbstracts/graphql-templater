@@ -1,5 +1,6 @@
 module GraphQL.Templater.TypeCheck
-  ( TypeErrorWithPath(..)
+  ( ArgTypeError(..)
+  , TypeErrorWithPath(..)
   , PositionedError
   , TypeError(..)
   , getTypeErrorsFromTree
@@ -38,10 +39,26 @@ data TypeError
   | NotObject
   | NotNode
   | NotList
+  | ArgTypeError ArgTypeError
 
 derive instance Generic TypeError _
 derive instance Eq TypeError
 instance Show TypeError where
+  show = genericShow
+
+data ArgTypeError
+  = ArgNotFound String
+  | ArgRequired String
+  | ArgTypeMismatch
+      { arg :: String
+      , expected :: String
+      , actual :: String
+      }
+  
+
+derive instance Generic ArgTypeError _
+derive instance Eq ArgTypeError
+instance Show ArgTypeError where
   show = genericShow
 
 getTypeErrorsFromTree :: GqlTypeTree -> List AstPos -> List PositionedError
@@ -167,9 +184,6 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checkAsts asts') in
         Node _ -> notList
         GqlUndefined -> notList
 
-  typeCheckArguments :: ArgumentsDefinition -> Arguments -> List PositionedError
-  typeCheckArguments argsDef args = Nil
-
   lookupType
     :: String
     -> Positions
@@ -205,3 +219,8 @@ getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checkAsts asts') in
       VarPartNameGqlName gqlName a ->
         (Pos $ Key (gqlName) a)
           : res
+
+
+
+typeCheckArguments :: ArgumentsDefinition -> Arguments -> List ArgTypeError
+typeCheckArguments argsDef args = Nil
