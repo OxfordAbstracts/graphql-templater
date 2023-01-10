@@ -42,12 +42,12 @@ interpolate = go Nil
 
         fullPath = normalizePos $ varPathToPosition v <> path
 
-        lookupObj key = caseJson 
+        lookupObj key = caseJson
           (const jsonNull)
           (const jsonNull)
           (const jsonNull)
           (const jsonNull)
-          (\arr -> maybe jsonNull (lookupObj key) $ arr !! 0 )
+          (\arr -> maybe jsonNull (lookupObj key) $ arr !! 0)
           \obj ->
             fromMaybe jsonNull $ Object.lookup key obj
 

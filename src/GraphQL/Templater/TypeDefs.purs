@@ -5,8 +5,7 @@ module GraphQL.Templater.TypeDefs
   , getTypeAtPath
   , getTypeMapFromTree
   , getTypeTreeFromDoc
-  )
-  where
+  ) where
 
 import Prelude
 
@@ -135,7 +134,7 @@ getTypeTreeFromDefinitions roots defs = force <$>
   fromNamedType (AST.NamedType nt) = case lookup name defMap of
     Just t -> force t
     Nothing -> Node name
-    where 
+    where
     name = fromMaybe nt $ stripSuffix (wrap "!") nt
 
   tdName :: AST.TypeDefinition -> String

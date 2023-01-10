@@ -23,8 +23,6 @@ import GraphQL.Templater.JsonPos (JsonPos(..), NormalizedJsonPos(..), normalizeP
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), TypeMap)
 
-
-
 data TypeErrorWithPath a = TypeErrorWithPath TypeError (List (NormalizedJsonPos a)) a
 
 type PositionedError = TypeErrorWithPath Positions
@@ -34,6 +32,7 @@ derive instance Eq a => Eq (TypeErrorWithPath a)
 derive instance Functor TypeErrorWithPath
 instance Show a => Show (TypeErrorWithPath a) where
   show = genericShow
+
 data TypeError
   = FieldNotFound
   | NotObject
@@ -44,7 +43,7 @@ derive instance Generic TypeError _
 derive instance Eq TypeError
 instance Show TypeError where
   show = genericShow
-  
+
 getTypeErrorsFromTree :: GqlTypeTree -> List AstPos -> List PositionedError
 getTypeErrorsFromTree typeTree asts' = _.errors $ execState (checkAsts asts') initialState
   where

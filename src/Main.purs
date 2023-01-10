@@ -170,20 +170,18 @@ component =
                 _ -> Nothing
             , debounceTime: Milliseconds 250.0
             }
-          case res of 
-            NoQuery -> pure unit 
-            DidNotRun -> pure unit 
-            EvalFailure err ->  H.modify_ _ { result = show err, ast = Just $ Right ast }
+          case res of
+            NoQuery -> pure unit
+            DidNotRun -> pure unit
+            EvalFailure err -> H.modify_ _ { result = show err, ast = Just $ Right ast }
             EvalSuccess resultStr -> H.modify_ _ { result = resultStr, ast = Just $ Right ast }
-            
-          -- let
-          --   resultStr = case res of
-          --     NoQuery -> "No query"
 
-          --     Just (Left err) -> show err
-          --     Just (Right query) -> query
+    -- let
+    --   resultStr = case res of
+    --     NoQuery -> "No query"
 
-         
+    --     Just (Left err) -> show err
+    --     Just (Right query) -> query
 
     where
     loadSchema = do
