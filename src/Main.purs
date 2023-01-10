@@ -6,6 +6,7 @@ import Affjax.RequestHeader (RequestHeader(..))
 import Control.Monad.Error.Class (try)
 import Data.Argonaut.Core (Json)
 import Data.Array (mapMaybe)
+import Data.DateTime.Instant (Instant)
 import Data.Either (Either(..), either, hush)
 import Data.Foldable (intercalate)
 import Data.GraphQL.AST.Print (printAst)
@@ -14,13 +15,14 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), split)
 import Data.String as String
+import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Exception (message)
 import Foreign.Object as Object
 import GraphQL.Templater.Ast (AstPos)
-import GraphQL.Templater.Eval (eval)
+import GraphQL.Templater.Eval (EvalError, EvalResult(..), eval)
 import GraphQL.Templater.Eval.MakeQuery (toGqlString)
 import GraphQL.Templater.GetSchema (getGqlDoc)
 import GraphQL.Templater.Parser (parse)
@@ -57,6 +59,7 @@ type State =
   , printedSchema :: Maybe String
   , schemaTypeTree :: Maybe GqlTypeTree
   , fullQueryCache :: Map.Map String Json
+  , mostRecentEval :: Maybe Instant
   }
 
 component :: forall output m q input. MonadAff m => H.Component q input output m
@@ -81,6 +84,7 @@ component =
     , printedSchema: Nothing
     , schemaTypeTree: Nothing
     , fullQueryCache: Map.empty
+    , mostRecentEval: Nothing
     }
 
   render :: State -> _
@@ -164,14 +168,22 @@ component =
             , headers: headers # split (Pattern "\n") # mapMaybe \str -> case split (Pattern ":") str of
                 [ key, value ] -> Just $ RequestHeader key value
                 _ -> Nothing
+            , debounceTime: Milliseconds 250.0
             }
-          let
-            resultStr = case res of
-              Nothing -> "No query"
-              Just (Left err) -> show err
-              Just (Right query) -> query
+          case res of 
+            NoQuery -> pure unit 
+            DidNotRun -> pure unit 
+            EvalFailure err ->  H.modify_ _ { result = show err, ast = Just $ Right ast }
+            EvalSuccess resultStr -> H.modify_ _ { result = resultStr, ast = Just $ Right ast }
+            
+          -- let
+          --   resultStr = case res of
+          --     NoQuery -> "No query"
 
-          H.modify_ _ { result = resultStr, ast = Just $ Right ast }
+          --     Just (Left err) -> show err
+          --     Just (Right query) -> query
+
+         
 
     where
     loadSchema = do
