@@ -5,6 +5,7 @@ import Prelude
 import Data.GraphQL.AST as AST
 import Data.List (List(..), (:))
 import Data.Maybe (Maybe(..))
+import GraphQL.Templater.Ast (Arg(..), ArgName(..), Value(..))
 import GraphQL.Templater.TypeCheck.Arguments (ArgTypeError(..), typeCheckArguments)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -92,4 +93,7 @@ typeCheck :: List AST.T_InputValueDefinition -> List AST.T_Argument -> List ArgT
 typeCheck defs args =
   typeCheckArguments
     (Just $ AST.ArgumentsDefinition $ map AST.InputValueDefinition defs)
-    (Just $ AST.Arguments $ map AST.Argument args)
+    (Just $ map toArg args)
+    where
+    toArg :: AST.T_Argument -> Arg Unit 
+    toArg { name, value } = Arg { name: ArgName name unit, value : Value value unit} unit

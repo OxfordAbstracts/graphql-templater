@@ -12,7 +12,7 @@ import Data.String.Regex (regex, replace)
 import Data.String.Regex.Flags (global)
 import Effect.Exception (Error)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..))
-import GraphQL.Templater.Eval.MakeQuery (toGqlString)
+import GraphQL.Templater.Eval.MakeQuery as MakeQuery
 import GraphQL.Templater.Parser (parse)
 import Partial.Unsafe (unsafeCrashWith)
 import Test.Spec (Spec, describe, it)
@@ -74,4 +74,8 @@ shouldEqualWoWs a b = map noWhitespace a `shouldEqual` map noWhitespace b
 parseAndMakeQuery :: String -> Maybe String
 parseAndMakeQuery str = case parse str of
   Left err -> unsafeCrashWith $ "parse error: " <> show err
-  Right ast -> toGqlString ast
+  Right ast -> toGqlString $ map (const unit) <$> ast
+
+
+toGqlString :: List (Ast Unit) -> Maybe String 
+toGqlString = MakeQuery.toGqlString

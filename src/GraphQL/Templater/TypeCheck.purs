@@ -19,7 +19,7 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Show.Generic (genericShow)
 import Data.Tuple (fst)
-import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), VarPathPart(..))
+import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), VarPathPart(..), Args)
 import GraphQL.Templater.JsonPos (JsonPos(..), NormalizedJsonPos(..), normalizePos)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeCheck.Arguments (ArgTypeError, typeCheckArguments)
@@ -169,19 +169,17 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
     Node _ -> Left $ TypeErrorWithPath NotObject path p
     GqlUndefined -> Left $ TypeErrorWithPath NotObject path p
 
-varPathToPosAndArgs :: forall f a. Foldable f => f (VarPathPart a) -> List (JsonPos { pos :: a, args :: Maybe Arguments })
+varPathToPosAndArgs :: forall f a. Foldable f => f (VarPathPart a) -> List (JsonPos { pos :: a, args :: Maybe (Args a) })
 varPathToPosAndArgs path = foldl step Nil path
   where
-  step res (VarPathPart { name, args: args_ } _) = case name of
+  step res (VarPathPart { name, args} _) = case name of
     VarPartNameRoot pos -> Root { pos, args } : res
     VarPartNameParent pos -> Parent { pos, args } : res
     VarPartNameGqlName gqlName pos ->
       (Pos $ Key (gqlName) { pos, args })
         : res
-    where
-    args = map fst args_
 
-type PosAndArgs = { pos :: Positions, args :: Maybe Arguments }
+type PosAndArgs = { pos :: Positions, args :: Maybe (Args Positions) }
 
 argTypeErrorToTypeError :: forall a. (List (NormalizedJsonPos a)) -> a -> ArgTypeError -> TypeErrorWithPath a
 argTypeErrorToTypeError pos a argTypeError = TypeErrorWithPath (ArgTypeError argTypeError) pos a

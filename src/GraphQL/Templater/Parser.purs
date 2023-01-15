@@ -1,16 +1,19 @@
-module GraphQL.Templater.Parser (parse) where
+module GraphQL.Templater.Parser
+  ( parse
+  , varPartNameParser
+  ) where
 
 import Prelude hiding (when)
 
 import Data.Array as Array
 import Data.Either (Either)
 import Data.Foldable (class Foldable, oneOf)
-import Data.GraphQL.Parser (arguments)
-import Data.GraphQL.Parser as GqlAst
+import Data.GraphQL.AST as GqlAst
+import Data.GraphQL.Parser (listish)
+import Data.GraphQL.Parser as GqlParser
 import Data.List (List)
 import Data.String.CodeUnits (fromCharArray)
-import Data.Tuple (Tuple(..))
-import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), VarPathPart(..))
+import GraphQL.Templater.Ast (Arg(..), ArgName(..), Ast(..), AstPos, Value(..), VarPartName(..), VarPath(..), VarPathPart(..))
 import GraphQL.Templater.Positions (Positions)
 import Parsing (ParseError, Parser, ParserT, position, runParser)
 import Parsing.Combinators (lookAhead, many1Till, manyTill, optionMaybe, sepBy1, try, (<|>))
@@ -58,14 +61,21 @@ varPathPartParser = withPositions do
   skipSpaces
   name <- varPartNameParser
   skipSpaces
-  args <- optionMaybe $ withPositions $ Tuple <$> arguments
+  args <- optionMaybe $ listish "(" ")" (argument GqlParser.value)
   pure $ VarPathPart { name, args }
+
+argument ∷ Parser String (GqlAst.Value) → Parser String (Arg Positions)
+argument vc = withPositions
+  $ map Arg
+  $ { name: _, value: _ }
+      <$> (withPositions $ ArgName <$> GqlParser.name)
+      <*> (withPositions $ map Value $ GqlParser.ignoreMe *> char ':' *> GqlParser.ignoreMe *> vc)
 
 varPartNameParser :: Parser String (VarPartName Positions)
 varPartNameParser = withPositions $
   (VarPartNameParent <$ string "*parent")
     <|> (VarPartNameRoot <$ string "*root")
-    <|> (VarPartNameGqlName <$> GqlAst.name)
+    <|> (VarPartNameGqlName <$> GqlParser.name)
 
 withPositions
   :: forall b m a

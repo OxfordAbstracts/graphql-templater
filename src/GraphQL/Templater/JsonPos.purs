@@ -4,13 +4,11 @@ import Prelude
 
 import Data.Foldable (class Foldable, foldl)
 import Data.Generic.Rep (class Generic)
-import Data.GraphQL.AST (Arguments)
 import Data.List (List(..), dropWhile, tail, uncons, (:))
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Show.Generic (genericShow)
-import Data.Tuple (fst)
-import GraphQL.Templater.Ast (VarPartName(..), VarPathPart(..))
-import GraphQL.Templater.Eval.MakeQuery (getAlias, nilArgs)
+import GraphQL.Templater.Ast (VarPartName(..), VarPathPart(..), Args)
+import GraphQL.Templater.Eval.MakeQuery (getAlias)
 
 data JsonPos a
   = Parent a
@@ -26,7 +24,7 @@ varPathToPosition path = foldl step Nil path
     VarPartNameRoot a -> Root a : res
     VarPartNameParent a -> Parent a : res
     VarPartNameGqlName gqlName a ->
-      (Pos $ Key (getKey (maybe nilArgs fst args) gqlName) a)
+      (Pos $ Key (getKey (fromMaybe Nil args) gqlName) a)
         : res
 
 normalizePos :: forall a. List (JsonPos a) -> List (NormalizedJsonPos a)
@@ -47,7 +45,7 @@ addJsonIdx idx l = case uncons l of
   Just { head: Pos (Key key a), tail } -> (Pos $ Index idx a) : (Pos (Key key a)) : tail
   _ -> l
 
-getKey ∷ Arguments → String → String
+getKey ∷  forall a. Args a → String → String
 getKey args name = fromMaybe name $ getAlias name args
 
 derive instance Generic (JsonPos a) _

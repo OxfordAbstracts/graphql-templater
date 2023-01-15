@@ -5,12 +5,11 @@ module Test.GraphQL.Templater.Parser
 import Prelude
 
 import Data.Either (Either(..))
-import Data.GraphQL.AST (Argument(..), Arguments(..), Value(..))
+import Data.GraphQL.AST (Value(..))
 import Data.List.Types (List(..), nelCons, (:))
 import Data.Maybe (Maybe(..))
 import Data.Newtype (wrap)
-import Data.Tuple (Tuple(..))
-import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..))
+import GraphQL.Templater.Ast (Arg(..), ArgName(..), Ast(..), Value(..), VarPartName(..), VarPath(..), VarPathPart(..))
 import GraphQL.Templater.Parser (parse)
 import GraphQL.Templater.Positions (Positions)
 import Parsing (Position(..))
@@ -38,7 +37,7 @@ spec = do
           ( pure $ Var
               ( mkPath' $
                   { name: VarPartNameGqlName "a" unit
-                  , args: Just $ Tuple
+                  , args: Just $ 
                       ( mkArgs $
                           { name: "arg1"
                           , value: Value_IntValue $ wrap 1
@@ -49,18 +48,18 @@ spec = do
                               }
                             : Nil
                       )
-                      unit
+                      
                   }
                     `nelCons` pure
                       { name: VarPartNameGqlName "b" unit
-                      , args: Just $ Tuple
+                      , args: Just $ 
                           ( mkArgs $
                               { name: "x"
                               , value: Value_BooleanValue $ wrap true
                               }
                                 : Nil
                           )
-                          unit
+                          
                       }
               )
               unit
@@ -115,7 +114,13 @@ spec = do
     )
     unit
 
-  mkArgs = Arguments <<< map Argument
+  mkArgs =  map \{ name, value } ->
+    ( Arg
+        { name: ArgName name unit
+        , value: Value value unit
+        }
+        unit
+    )
 
 line1
   :: Int

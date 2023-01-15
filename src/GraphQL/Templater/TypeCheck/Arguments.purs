@@ -11,10 +11,11 @@ import Data.List.NonEmpty as NonEmpty
 import Data.List.Types (NonEmptyList)
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), isJust, maybe)
+import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Newtype (unwrap)
 import Data.Show.Generic (genericShow)
 import Data.Tuple (Tuple(..))
+import GraphQL.Templater.Ast (Arg(..), ArgName(..), Args, Value(..))
 
 data ArgTypeError
   = ArgUnknown String
@@ -38,10 +39,10 @@ derive instance Eq MismatchReason
 instance Show MismatchReason where
   show = genericShow
 
-typeCheckArguments :: Maybe ArgumentsDefinition -> Maybe Arguments -> List ArgTypeError
-typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< maybe Nil unwrap
+typeCheckArguments :: forall a. Maybe ArgumentsDefinition -> Maybe (Args a) -> List ArgTypeError
+typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
   where
-  go :: List InputValueDefinition -> List Argument -> List ArgTypeError
+  go :: List InputValueDefinition -> Args a -> List ArgTypeError
   go defs args = foldl checkDef Nil defs <> foldl checkArg Nil args
     where
     checkDef :: List ArgTypeError -> InputValueDefinition -> List ArgTypeError
@@ -51,7 +52,7 @@ typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< maybe Nil unwrap
           | isJust defaultValue || isNullableType type_ -> res
           | true -> ArgRequired name : res
 
-        Just (Argument { value })
+        Just (Arg { value: Value value _ } _)
           | Just reasons <- NonEmpty.fromList $ valueIsOfType type_ value ->
               ArgTypeMismatch
                 { name
@@ -69,13 +70,13 @@ typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< maybe Nil unwrap
       AST.Type_ListType _ -> true
       AST.Type_NonNullType _ -> false
 
-    checkArg :: List ArgTypeError -> Argument -> List ArgTypeError
-    checkArg res (Argument { name }) =
-      case Map.lookup name defsMap of
-        Nothing -> ArgUnknown name : res
+    checkArg :: List ArgTypeError -> Arg a -> List ArgTypeError
+    checkArg res (Arg { name } _) =
+      case Map.lookup (argNameVal name) defsMap of
+        Nothing -> ArgUnknown (argNameVal name) : res
         _ -> res
 
-    valueIsOfType :: AST.Type -> Value -> List MismatchReason
+    valueIsOfType :: AST.Type -> AST.Value -> List MismatchReason
     valueIsOfType type_ value = case type_ of
       AST.Type_NamedType (AST.NamedType name) ->
         isOfType name valueName
@@ -96,7 +97,7 @@ typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< maybe Nil unwrap
       checkMismatch :: String -> Maybe String -> List MismatchReason
       checkMismatch _ _ = Nil
 
-      isNotNull :: Value -> List MismatchReason
+      isNotNull :: AST.Value -> List MismatchReason
       isNotNull = case _ of
         AST.Value_NullValue _ -> pure NullArgForNonNullType
         _ -> Nil
@@ -120,6 +121,8 @@ typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< maybe Nil unwrap
     defsMap :: Map String InputValueDefinition
     defsMap = Map.fromFoldable $ map (\def@(InputValueDefinition { name }) -> Tuple name def) defs
 
-    argsMap :: Map String Argument
-    argsMap = Map.fromFoldable $ map (\arg@(Argument { name }) -> Tuple name arg) args
+    argsMap :: Map String (Arg a)
+    argsMap = Map.fromFoldable $ map (\arg@(Arg { name } _) -> Tuple (argNameVal name) arg) args
 
+argNameVal :: forall a. ArgName a -> String
+argNameVal (ArgName name  _) = name

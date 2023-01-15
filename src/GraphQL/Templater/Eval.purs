@@ -52,6 +52,7 @@ instance Show EvalError where
 eval
   :: forall a m st
    . MonadAff m
+  => Ord a
   => MonadState
        { fullQueryCache :: FullQueryCache
        , mostRecentEval :: Maybe Instant

@@ -7,29 +7,29 @@ import Data.GraphQL.AST (Arguments(..))
 import Data.GraphQL.AST as GqlAst
 import Data.GraphQL.AST.Print (printAst)
 import Data.Hashable (hash)
-import Data.List (List(..), reverse, tail, (:))
+import Data.List (List(..), null, reverse, tail, (:))
 import Data.List.NonEmpty as NonEmpty
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (drop, take)
-import Data.Tuple (Tuple(..), fst)
-import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..))
+import Data.Tuple (Tuple(..))
+import GraphQL.Templater.Ast (Arg(..), ArgName(..), Args, Ast(..), Value(..), VarPartName(..), VarPath(..), VarPathPart(..))
 
-newtype SelectionTree =
-  SelectionTree Selections
+newtype SelectionTree a =
+  SelectionTree (Selections a)
 
-type Selections = Map { name :: String, args :: Arguments } SelectionTree
+type Selections a = Map { name :: String, args :: (Args a) } (SelectionTree a)
 
-toGqlString :: forall a. List (Ast a) -> Maybe String
+toGqlString :: forall a. Ord a => List (Ast a) -> Maybe String
 toGqlString = astToGqlOperationDefinition >>> map printAst
 
-astToGqlOperationDefinition :: forall a. List (Ast a) -> Maybe GqlAst.OperationDefinition
+astToGqlOperationDefinition :: forall a. Ord a => List (Ast a) -> Maybe GqlAst.OperationDefinition
 astToGqlOperationDefinition =
   makeSelections
     >>> map (SelectionTree >>> addTypenames >>> toGqlOperationDefinition)
 
-toGqlOperationDefinition :: SelectionTree -> GqlAst.OperationDefinition
+toGqlOperationDefinition :: forall a. SelectionTree a -> GqlAst.OperationDefinition
 toGqlOperationDefinition (SelectionTree sels) = GqlAst.OperationDefinition_OperationType
   { directives: Nothing
   , name: Nothing
@@ -38,23 +38,38 @@ toGqlOperationDefinition (SelectionTree sels) = GqlAst.OperationDefinition_Opera
   , variableDefinitions: Nothing
   }
 
-toGqlSelectionSet :: SelectionTree -> GqlAst.SelectionSet
+toGqlSelectionSet :: forall a. SelectionTree a -> GqlAst.SelectionSet
 toGqlSelectionSet (SelectionTree sels) = GqlAst.SelectionSet
   $ Map.toUnfoldable sels <#> \(Tuple { name, args } (SelectionTree tree)) ->
       GqlAst.Selection_Field $ GqlAst.Field
         { alias: getAlias name args
-        , arguments: if args == nilArgs then Nothing else Just args
+        , arguments:
+            if null args then
+              Nothing
+            else
+              Just $ Arguments $ map toAstArg args
         , directives: Nothing
         , name
         , selectionSet: if Map.isEmpty tree then Nothing else Just $ toGqlSelectionSet (SelectionTree tree)
         }
 
-getAlias ∷ String → Arguments → Maybe String
-getAlias name args = if args == nilArgs then Nothing else Just $ name <> "__" <> removeNegation (show $ hash args)
+  where
+  toAstArg :: Arg a -> GqlAst.Argument
+  toAstArg (Arg { name: (ArgName name _), value: (Value value _) } _) = GqlAst.Argument
+    { name
+    , value
+    }
+
+getAlias ∷ forall a. String → Args a → Maybe String
+getAlias name args =
+  if null args then
+    Nothing
+  else
+    Just $ name <> "__" <> removeNegation (show $ hash $ show $ map (const unit) <$> args)
   where
   removeNegation str = if take 1 str == "-" then "N" <> drop 1 str else str
 
-makeSelections :: forall a. List (Ast a) -> Maybe Selections
+makeSelections :: forall a. Ord a => List (Ast a) -> Maybe (Selections a)
 makeSelections topLevelAsts =
   if not hasQuery topLevelAsts then
     Nothing
@@ -63,10 +78,10 @@ makeSelections topLevelAsts =
 
   where
 
-  go :: List (Tuple Arguments String) -> Selections -> List (Ast a) -> Selections
+  go :: List (Tuple (Args a) String) -> (Selections a) -> List (Ast a) -> (Selections a)
   go ancestors = foldl (step ancestors)
 
-  step :: List (Tuple Arguments String) -> Selections -> (Ast a) -> Selections
+  step :: List (Tuple (Args a) String) -> (Selections a) -> (Ast a) -> (Selections a)
   step ancestors res = case _ of
     Var (VarPath v _) _ -> normalizeAndInsertPath false ancestors res v
     Each (VarPath v _) ast _ ->
@@ -81,7 +96,7 @@ makeSelections topLevelAsts =
     in
       insertPath withTypename res (reverse path)
 
-  insertPath :: Boolean -> Selections -> List (Tuple Arguments String) -> Selections
+  insertPath :: Boolean -> (Selections a) -> List (Tuple (Args a) String) -> (Selections a)
   insertPath withTypename sels = case _ of
     Nil -> sels
     Tuple args name : rest ->
@@ -101,21 +116,18 @@ hasQuery = foldl step false
   where
   step res = case _ of
     Var _ _ -> true
-    Each _ ast _ -> true
+    Each _ _ast _ -> true
     Text _ _ -> res
 
-normalizePath :: forall a. List (Tuple Arguments String) -> List (VarPathPart a) -> List (Tuple Arguments String)
+normalizePath :: forall a. List (Tuple (Args a) String) -> List (VarPathPart a) -> List (Tuple (Args a) String)
 normalizePath res = case _ of
   VarPathPart { name: (VarPartNameRoot _) } _ : rest -> normalizePath Nil rest
   VarPathPart { name: (VarPartNameParent _) } _ : rest -> normalizePath (fromMaybe Nil $ tail res) rest
   VarPathPart { name: (VarPartNameGqlName gqlName _), args } _ : rest ->
-    normalizePath (Tuple (getPartArgs args) gqlName : res) rest
+    normalizePath (Tuple (fromMaybe Nil args) gqlName : res) rest
   _ -> res
 
-getPartArgs ∷ ∀ (a ∷ Type). Maybe (Tuple Arguments a) → Arguments
-getPartArgs = maybe nilArgs fst
-
-addTypenames :: SelectionTree -> SelectionTree
+addTypenames :: forall a. Ord a => SelectionTree a -> SelectionTree a
 addTypenames selTree@(SelectionTree s) =
   if Map.isEmpty s then
     selTree
@@ -124,8 +136,8 @@ addTypenames selTree@(SelectionTree s) =
       $ Map.union typenameMap s
           <#> addTypenames
 
-typenameMap :: Selections
-typenameMap = Map.singleton { args: nilArgs, name: "__typename" } (SelectionTree Map.empty)
+typenameMap :: forall a. Selections a
+typenameMap = Map.singleton { args: Nil, name: "__typename" } (SelectionTree Map.empty)
 
 nilArgs :: Arguments
 nilArgs = Arguments Nil
