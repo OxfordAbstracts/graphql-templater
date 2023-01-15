@@ -19,7 +19,6 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Show.Generic (genericShow)
 import Data.Tuple (fst)
-import Debug (spy, spyWith)
 import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), VarPathPart(..))
 import GraphQL.Templater.JsonPos (JsonPos(..), NormalizedJsonPos(..), normalizePos)
 import GraphQL.Templater.Positions (Positions)
@@ -73,7 +72,7 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
                   varPathToPosAndArgs v <> st.path
               in
                 st
-                  { errors = spy "var path errors" $
+                  { errors =
                       getVarPathErrors path (getStartPos v) typeTree path
                         <> st.errors
                   }
@@ -82,12 +81,12 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
             originalSt <- get
             modify_ \st ->
               let
-                path' = varPathToPosAndArgs (spyWith "v" show v) <> st.path
+                path' = varPathToPosAndArgs v <> st.path
                 path = normalizePos path'
               in
                 st
-                  { errors = spy "each path errors" $
-                      getEachPathErrors (spyWith "each path" show path) (getStartPos v) typeTree path
+                  { errors =
+                      getEachPathErrors path (getStartPos v) typeTree path
                         <> st.errors
                   , path = path'
                   }
