@@ -4,7 +4,7 @@ import Prelude
 
 import Data.Foldable (foldl)
 import Data.Generic.Rep (class Generic)
-import Data.GraphQL.AST (Argument(..), Arguments, ArgumentsDefinition, InputValueDefinition(..), Value)
+import Data.GraphQL.AST (ArgumentsDefinition, InputValueDefinition(..))
 import Data.GraphQL.AST as AST
 import Data.List (List(..), (:))
 import Data.List.NonEmpty as NonEmpty
@@ -17,8 +17,8 @@ import Data.Show.Generic (genericShow)
 import Data.Tuple (Tuple(..))
 import GraphQL.Templater.Ast (Arg(..), ArgName(..), Args, Value(..))
 
-data ArgTypeError
-  = ArgUnknown String
+data ArgTypeError a
+  = ArgUnknown String a
   | ArgRequired String
   | ArgTypeMismatch
       { name :: String
@@ -26,10 +26,12 @@ data ArgTypeError
       , argValue :: AST.Value
       , reasons :: NonEmptyList MismatchReason
       }
+      a
 
-derive instance Generic ArgTypeError _
-derive instance Eq ArgTypeError
-instance Show ArgTypeError where
+derive instance Functor ArgTypeError
+derive instance Generic (ArgTypeError a) _
+derive instance Eq a => Eq (ArgTypeError a)
+instance Show a => Show (ArgTypeError a) where
   show = genericShow
 
 data MismatchReason = NullArgForNonNullType | InvalidType
@@ -39,27 +41,28 @@ derive instance Eq MismatchReason
 instance Show MismatchReason where
   show = genericShow
 
-typeCheckArguments :: forall a. Maybe ArgumentsDefinition -> Maybe (Args a) -> List ArgTypeError
+typeCheckArguments :: forall a. Maybe ArgumentsDefinition -> Maybe (Args a) -> List (ArgTypeError a)
 typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
   where
-  go :: List InputValueDefinition -> Args a -> List ArgTypeError
+  go :: List InputValueDefinition -> Args a -> List (ArgTypeError a)
   go defs args = foldl checkDef Nil defs <> foldl checkArg Nil args
     where
-    checkDef :: List ArgTypeError -> InputValueDefinition -> List ArgTypeError
+    checkDef :: List (ArgTypeError a) -> InputValueDefinition -> List (ArgTypeError a)
     checkDef res (InputValueDefinition { defaultValue, name, type: type_ }) =
       case Map.lookup name argsMap of
         Nothing
           | isJust defaultValue || isNullableType type_ -> res
           | true -> ArgRequired name : res
 
-        Just (Arg { value: Value value _ } _)
+        Just (Arg { value: Value value a } _)
           | Just reasons <- NonEmpty.fromList $ valueIsOfType type_ value ->
               ArgTypeMismatch
                 { name
                 , definitionType: type_
                 , argValue: value
                 , reasons
-                } :
+                }
+                a :
                 res
 
         _ -> res
@@ -70,10 +73,10 @@ typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
       AST.Type_ListType _ -> true
       AST.Type_NonNullType _ -> false
 
-    checkArg :: List ArgTypeError -> Arg a -> List ArgTypeError
-    checkArg res (Arg { name } _) =
-      case Map.lookup (argNameVal name) defsMap of
-        Nothing -> ArgUnknown (argNameVal name) : res
+    checkArg :: List (ArgTypeError a) -> Arg a -> List (ArgTypeError a)
+    checkArg res (Arg { name: ArgName name a } _) =
+      case Map.lookup name defsMap of
+        Nothing -> ArgUnknown name a : res
         _ -> res
 
     valueIsOfType :: AST.Type -> AST.Value -> List MismatchReason
@@ -125,4 +128,4 @@ typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
     argsMap = Map.fromFoldable $ map (\arg@(Arg { name } _) -> Tuple (argNameVal name) arg) args
 
 argNameVal :: forall a. ArgName a -> String
-argNameVal (ArgName name  _) = name
+argNameVal (ArgName name _) = name

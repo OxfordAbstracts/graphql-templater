@@ -11,21 +11,19 @@ import Control.Monad.State (execState, get, modify_)
 import Data.Either (Either(..), either)
 import Data.Foldable (class Foldable, foldl)
 import Data.Generic.Rep (class Generic)
-import Data.GraphQL.AST (Arguments)
 import Data.Lazy (force)
 import Data.List (List(..), uncons, (:))
 import Data.List.NonEmpty as NonEmpty
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Show.Generic (genericShow)
-import Data.Tuple (fst)
 import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), VarPathPart(..), Args)
 import GraphQL.Templater.JsonPos (JsonPos(..), NormalizedJsonPos(..), normalizePos)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeCheck.Arguments (ArgTypeError, typeCheckArguments)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..))
 
-data TypeErrorWithPath a = TypeErrorWithPath TypeError (List (NormalizedJsonPos a)) a
+data TypeErrorWithPath a = TypeErrorWithPath (TypeError a) (List (NormalizedJsonPos a)) a
 
 type PositionedError = TypeErrorWithPath Positions
 
@@ -35,16 +33,17 @@ derive instance Functor TypeErrorWithPath
 instance Show a => Show (TypeErrorWithPath a) where
   show = genericShow
 
-data TypeError
+data TypeError a
   = FieldNotFound
   | NotObject
   | NotNode
   | NotList
-  | ArgTypeError ArgTypeError
+  | ArgTypeError (ArgTypeError a)
 
-derive instance Generic TypeError _
-derive instance Eq TypeError
-instance Show TypeError where
+derive instance Functor TypeError
+derive instance Generic (TypeError a) _
+derive instance Eq a => Eq (TypeError a)
+instance Show a => Show (TypeError a) where
   show = genericShow
 
 getTypeErrorsFromTree :: GqlTypeTree -> List AstPos -> List PositionedError
@@ -143,7 +142,7 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
       getTypeMap k p fullPath types
         # either pure
             ( lookupType k p fullPath >>> either pure \{ args, returns } ->
-                (argTypeErrorToTypeError fullPath p <$> typeCheckArguments args p.args) <>
+                (argTypeErrorToTypeError fullPath p <$> typeCheckArguments args (map addNullArgs <$> p.args)) <>
                   getErrors atPathEnd fullPath p returns rest
             )
 
@@ -157,6 +156,9 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
         ObjectType _ -> notList
         Node _ -> notList
         GqlUndefined -> notList
+
+    where
+    addNullArgs = map { pos: _, args: Nothing }
 
   lookupType k p path t = case force <$> Map.lookup k t of
     Nothing -> Left $ TypeErrorWithPath FieldNotFound path p
@@ -172,7 +174,7 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
 varPathToPosAndArgs :: forall f a. Foldable f => f (VarPathPart a) -> List (JsonPos { pos :: a, args :: Maybe (Args a) })
 varPathToPosAndArgs path = foldl step Nil path
   where
-  step res (VarPathPart { name, args} _) = case name of
+  step res (VarPathPart { name, args } _) = case name of
     VarPartNameRoot pos -> Root { pos, args } : res
     VarPartNameParent pos -> Parent { pos, args } : res
     VarPartNameGqlName gqlName pos ->
@@ -181,5 +183,5 @@ varPathToPosAndArgs path = foldl step Nil path
 
 type PosAndArgs = { pos :: Positions, args :: Maybe (Args Positions) }
 
-argTypeErrorToTypeError :: forall a. (List (NormalizedJsonPos a)) -> a -> ArgTypeError -> TypeErrorWithPath a
+argTypeErrorToTypeError :: forall a. (List (NormalizedJsonPos a)) -> a -> (ArgTypeError a) -> TypeErrorWithPath a
 argTypeErrorToTypeError pos a argTypeError = TypeErrorWithPath (ArgTypeError argTypeError) pos a

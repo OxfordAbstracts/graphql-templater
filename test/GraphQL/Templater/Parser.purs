@@ -37,7 +37,7 @@ spec = do
           ( pure $ Var
               ( mkPath' $
                   { name: VarPartNameGqlName "a" unit
-                  , args: Just $ 
+                  , args: Just $
                       ( mkArgs $
                           { name: "arg1"
                           , value: Value_IntValue $ wrap 1
@@ -48,18 +48,18 @@ spec = do
                               }
                             : Nil
                       )
-                      
+
                   }
                     `nelCons` pure
                       { name: VarPartNameGqlName "b" unit
-                      , args: Just $ 
+                      , args: Just $
                           ( mkArgs $
                               { name: "x"
                               , value: Value_BooleanValue $ wrap true
                               }
                                 : Nil
                           )
-                          
+
                       }
               )
               unit
@@ -114,7 +114,7 @@ spec = do
     )
     unit
 
-  mkArgs =  map \{ name, value } ->
+  mkArgs = map \{ name, value } ->
     ( Arg
         { name: ArgName name unit
         , value: Value value unit

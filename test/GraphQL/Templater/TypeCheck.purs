@@ -164,7 +164,14 @@ spec = do
 
         errors `shouldEqual`
 
-          ( ( ( TypeErrorWithPath (ArgTypeError (ArgUnknown "invalid"))
+          ( ( ( TypeErrorWithPath
+                  ( ArgTypeError
+                      ( ArgUnknown "invalid"
+                          { end: (Position { column: 16, index: 15, line: 1 })
+                          , start: (Position { column: 9, index: 8, line: 1 })
+                          }
+                      )
+                  )
                   ( ( Key "users"
                         { end: (Position { column: 8, index: 7, line: 1 })
                         , start: (Position { column: 3, index: 2, line: 1 })

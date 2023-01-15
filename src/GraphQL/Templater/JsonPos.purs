@@ -45,7 +45,7 @@ addJsonIdx idx l = case uncons l of
   Just { head: Pos (Key key a), tail } -> (Pos $ Index idx a) : (Pos (Key key a)) : tail
   _ -> l
 
-getKey ∷  forall a. Args a → String → String
+getKey ∷ forall a. Args a → String → String
 getKey args name = fromMaybe name $ getAlias name args
 
 derive instance Generic (JsonPos a) _

@@ -89,11 +89,11 @@ defaultArg =
   , value: AST.Value_StringValue $ AST.StringValue "default"
   }
 
-typeCheck :: List AST.T_InputValueDefinition -> List AST.T_Argument -> List ArgTypeError
+typeCheck :: List AST.T_InputValueDefinition -> List AST.T_Argument -> List (ArgTypeError Unit)
 typeCheck defs args =
   typeCheckArguments
     (Just $ AST.ArgumentsDefinition $ map AST.InputValueDefinition defs)
     (Just $ map toArg args)
-    where
-    toArg :: AST.T_Argument -> Arg Unit 
-    toArg { name, value } = Arg { name: ArgName name unit, value : Value value unit} unit
+  where
+  toArg :: AST.T_Argument -> Arg Unit
+  toArg { name, value } = Arg { name: ArgName name unit, value: Value value unit } unit

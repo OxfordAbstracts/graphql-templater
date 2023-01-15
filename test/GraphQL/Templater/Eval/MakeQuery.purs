@@ -76,6 +76,5 @@ parseAndMakeQuery str = case parse str of
   Left err -> unsafeCrashWith $ "parse error: " <> show err
   Right ast -> toGqlString $ map (const unit) <$> ast
 
-
-toGqlString :: List (Ast Unit) -> Maybe String 
+toGqlString :: List (Ast Unit) -> Maybe String
 toGqlString = MakeQuery.toGqlString
