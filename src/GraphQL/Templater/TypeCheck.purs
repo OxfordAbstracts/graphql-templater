@@ -7,7 +7,7 @@ module GraphQL.Templater.TypeCheck
 
 import Prelude
 
-import Control.Monad.State (execState, modify_)
+import Control.Monad.State (execState, get, modify_)
 import Data.Either (Either(..), either)
 import Data.Foldable (class Foldable, foldl)
 import Data.Generic.Rep (class Generic)
@@ -19,6 +19,7 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Show.Generic (genericShow)
 import Data.Tuple (fst)
+import Debug (spy, spyWith)
 import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), VarPathPart(..))
 import GraphQL.Templater.JsonPos (JsonPos(..), NormalizedJsonPos(..), normalizePos)
 import GraphQL.Templater.Positions (Positions)
@@ -72,24 +73,27 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
                   varPathToPosAndArgs v <> st.path
               in
                 st
-                  { errors =
+                  { errors = spy "var path errors" $
                       getVarPathErrors path (getStartPos v) typeTree path
                         <> st.errors
                   }
             checkAsts tail
           Each (VarPath v _) inner _p -> do
-            checkAsts tail
+            originalSt <- get
             modify_ \st ->
               let
-                path' = varPathToPosAndArgs v <> st.path
+                path' = varPathToPosAndArgs (spyWith "v" show v) <> st.path
                 path = normalizePos path'
               in
                 st
-                  { errors = getEachPathErrors path (getStartPos v) typeTree path
-                      <> st.errors
+                  { errors = spy "each path errors" $
+                      getEachPathErrors (spyWith "each path" show path) (getStartPos v) typeTree path
+                        <> st.errors
                   , path = path'
                   }
             checkAsts inner
+            modify_ \st -> st { path = originalSt.path }
+            checkAsts tail
 
           Text _ _ -> checkAsts tail
 

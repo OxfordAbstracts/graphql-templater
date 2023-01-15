@@ -119,7 +119,7 @@ spec = do
 
       it "should return an error if the each field is not a list" do
         let
-          template = "{{#each user}}{{id}}{{/each}}"
+          template = "{{#each user(id: 1)}}{{id}}{{/each}}"
 
         errors <- typeCheckNoPos usersSchema template
         errors `shouldEqual` ((TypeErrorWithPath NotList ((Key "user" unit) : Nil) unit) : Nil)
@@ -158,16 +158,31 @@ spec = do
 
       it "should return an error for a not found argument" do
         let
-          template = "{{user(invalid: 1).id}}"
+          template = "{{users(invalid: 1).id}}"
 
-        errors <- typeCheckNoPos usersSchema template
+        errors <- throwParser $ typeCheck usersSchema template
+
         errors `shouldEqual`
-          ( ( TypeErrorWithPath (ArgTypeError (ArgUnknown "invalid"))
-                ( (Key "user" unit)
-                    : Nil
-                )
-                unit
-            ) : Nil
+
+          ( ( ( TypeErrorWithPath (ArgTypeError (ArgUnknown "invalid"))
+                  ( ( Key "users"
+                        { end: (Position { column: 8, index: 7, line: 1 })
+                        , start: (Position { column: 3, index: 2, line: 1 })
+                        }
+                    )
+                      :
+                        ( Key "id"
+                            { end: (Position { column: 23, index: 22, line: 1 })
+                            , start: (Position { column: 21, index: 20, line: 1 })
+                            }
+                        )
+                      : Nil
+                  )
+                  { end: (Position { column: 8, index: 7, line: 1 })
+                  , start: (Position { column: 3, index: 2, line: 1 })
+                  }
+              ) : Nil
+            )
           )
 
 simpleSchema ∷ String
