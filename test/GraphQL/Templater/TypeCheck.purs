@@ -10,7 +10,8 @@ import Data.Maybe (fromMaybe)
 import Effect.Exception (Error, error)
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
 import GraphQL.Templater.Parser (parse)
-import GraphQL.Templater.TypeCheck (ArgTypeError(..), PositionedError, TypeError(..), TypeErrorWithPath(..), getTypeErrorsFromTree)
+import GraphQL.Templater.TypeCheck (PositionedError, TypeError(..), TypeErrorWithPath(..), getTypeErrorsFromTree)
+import GraphQL.Templater.TypeCheck.Arguments (ArgTypeError(..))
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeTreeFromDoc)
 import Parsing (ParseError, Position(..), parseErrorMessage, runParser)
 import Test.Spec (Spec, describe, it)
@@ -161,7 +162,7 @@ spec = do
 
         errors <- typeCheckNoPos usersSchema template
         errors `shouldEqual`
-          ( ( TypeErrorWithPath (ArgTypeError (ArgNotFound "invalid"))
+          ( ( TypeErrorWithPath (ArgTypeError (ArgUnknown "invalid"))
                 ( (Key "user" unit)
                     : Nil
                 )
