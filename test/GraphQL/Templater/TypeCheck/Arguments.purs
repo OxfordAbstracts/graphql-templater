@@ -12,7 +12,7 @@ import Test.Spec.Assertions (shouldEqual)
 
 spec :: Spec Unit
 spec = do
-  describe "GraphQL.Templater.TypeDefs" do
+  describe "GraphQL.Templater.TypeDefs.Arguments" do
     describe "getTypeErrorsFromTree" do
       it "should return no errors when there is no args and no definitions" do
         typeCheck Nil Nil `shouldEqual` Nil
@@ -73,6 +73,23 @@ spec = do
               : Nil
           )
           Nil `shouldEqual` pure (ArgRequired "default")
+
+      it "should return no errors when there is no matching arg for a non null definition with a default value" do
+        typeCheck
+          ( defaultDef
+              { type = AST.Type_NonNullType $ AST.NonNullType_NamedType $ AST.NamedType "String"
+              , defaultValue = Just $ AST.DefaultValue $ AST.Value_StringValue $ AST.StringValue "test"
+              }
+              : Nil
+          )
+          Nil `shouldEqual` Nil
+
+      it "should return an ArgUnknown error when an arg is not a parameter" do
+        typeCheck
+          Nil
+          (defaultArg : Nil)
+          `shouldEqual`
+            pure (ArgUnknown "default" unit)
 
 defaultDef :: AST.T_InputValueDefinition
 defaultDef =
