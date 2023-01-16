@@ -6,7 +6,7 @@ import Data.GraphQL.AST as AST
 import Data.List (List(..), (:))
 import Data.Maybe (Maybe(..))
 import GraphQL.Templater.Ast (Arg(..), ArgName(..), Value(..))
-import GraphQL.Templater.TypeCheck.Arguments (ArgTypeError(..), typeCheckArguments)
+import GraphQL.Templater.TypeCheck.Arguments (ArgTypeError(..), MismatchReason(..), typeCheckArguments)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -90,6 +90,29 @@ spec = do
           (defaultArg : Nil)
           `shouldEqual`
             pure (ArgUnknown "default" unit)
+
+      it "should return an ArgTypeMismatch error when an arg is of the wrong type" do
+
+        let
+          def = defaultDef
+            { type = AST.Type_NamedType $ AST.NamedType "Int"
+            }
+        typeCheck
+          ( def : Nil
+          )
+          ( defaultArg
+              : Nil
+          )
+          `shouldEqual`
+            pure
+              ( ArgTypeMismatch
+                  { name: "default"
+                  , definitionType: def.type
+                  , argValue: defaultArg.value
+                  , reasons: pure ValueDoesNotFitDefinition
+                  }
+                  unit
+              )
 
 defaultDef :: AST.T_InputValueDefinition
 defaultDef =

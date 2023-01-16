@@ -34,7 +34,7 @@ derive instance Eq a => Eq (ArgTypeError a)
 instance Show a => Show (ArgTypeError a) where
   show = genericShow
 
-data MismatchReason = NullArgForNonNullType | InvalidType
+data MismatchReason = NullArgForNonNullType | ValueDoesNotFitDefinition
 
 derive instance Generic MismatchReason _
 derive instance Eq MismatchReason
@@ -98,7 +98,9 @@ typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
         _ -> checkMismatch name valName
 
       checkMismatch :: String -> Maybe String -> List MismatchReason
-      checkMismatch _ _ = Nil
+      checkMismatch name = case _ of 
+        Just valName | name /= valName -> pure ValueDoesNotFitDefinition
+        _ -> Nil
 
       isNotNull :: AST.Value -> List MismatchReason
       isNotNull = case _ of
