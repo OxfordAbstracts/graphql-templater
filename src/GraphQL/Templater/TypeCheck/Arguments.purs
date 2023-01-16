@@ -115,7 +115,7 @@ typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
       valueName = case value of
         AST.Value_Variable _ -> Nothing -- TODO: add support for variables
         AST.Value_ListValue _ -> Nothing -- TODO: add support for list
-        AST.Value_ObjectValue _ -> Nothing -- TODO: add support for variables
+        AST.Value_ObjectValue _ -> Nothing -- TODO: add support for objects
         AST.Value_NullValue _ -> Nothing
         AST.Value_StringValue _ -> Just "String"
         AST.Value_IntValue _ -> Just "Int"
