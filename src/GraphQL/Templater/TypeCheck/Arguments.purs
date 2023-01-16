@@ -98,7 +98,7 @@ typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
         _ -> checkMismatch name valName
 
       checkMismatch :: String -> Maybe String -> List MismatchReason
-      checkMismatch name = case _ of 
+      checkMismatch name = case _ of
         Just valName | name /= valName -> pure ValueDoesNotFitDefinition
         _ -> Nil
 
