@@ -55,6 +55,7 @@ to generate this file without the comments in this block.
   , "unicode"
   , "unordered-collections"
   , "unsafe-coerce"
+  , "web-dom"
   , "web-html"
   , "web-storage"
   ]

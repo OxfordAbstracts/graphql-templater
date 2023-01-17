@@ -3,7 +3,7 @@ module Main (main) where
 import Prelude
 
 import Effect (Effect)
-import GraphQL.View.App as App
+import GraphQL.Templater.View.App as App
 import Halogen.Aff as HA
 import Halogen.VDom.Driver (runUI)
 
