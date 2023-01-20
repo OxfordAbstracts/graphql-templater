@@ -18,7 +18,6 @@ import Data.String (Pattern(..), split)
 import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
-import Debug (spy, traceM)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Exception (message)
 import Foreign.Object as Object
@@ -106,9 +105,8 @@ component =
           ]
       , HH.slot (Proxy :: Proxy "Editor") unit Editor.component
           { doc: initialQuery
-          , lint: \v -> do
-              traceM { v }
-              pure $ spy "diagnostics" state.diagnostics
+          , lint: \_v -> do
+              pure $ state.diagnostics
           }
           case _ of
             Editor.DocChanged viewUpdate -> SetTemplate viewUpdate
@@ -163,7 +161,7 @@ component =
       H.modify_ _ { headers = headers }
     SetTemplate viewUpdate -> do
       template <- liftEffect $ getViewUpdateContent viewUpdate
-      { url, headers, schemaTypeTree, diagnostics: prevDiagnostics } <- H.modify _ { template = template }
+      { url, headers, schemaTypeTree } <- H.modify _ { template = template }
       case parse template of
         Left (ParseError err (Position pos)) -> H.modify_ _
           { diagnostics = pure
@@ -176,7 +174,7 @@ component =
         Right ast -> do
           let typeErrors = maybe Nil (flip getTypeErrorsFromTree ast) schemaTypeTree
           { diagnostics } <- H.modify _
-            { diagnostics = Array.fromFoldable $ (spy "typeErrors" typeErrors)
+            { diagnostics = Array.fromFoldable $ typeErrors
                 <#> \(TypeErrorWithPath err _path { start: Position start, end: Position end }) ->
                   { from: start.index
                   , message: show err
