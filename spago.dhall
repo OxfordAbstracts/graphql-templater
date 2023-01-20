@@ -31,6 +31,7 @@ to generate this file without the comments in this block.
   , "foreign-object"
   , "graphql-parser"
   , "halogen"
+  , "halogen-subscriptions"
   , "http-methods"
   , "integers"
   , "lazy"

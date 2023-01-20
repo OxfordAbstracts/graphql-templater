@@ -1,8 +1,5 @@
 module GraphQL.Templater.TypeCheck
-  ( TypeErrorWithPath(..)
-  , PositionedError
-  , TypeError(..)
-  , getTypeErrorsFromTree
+  ( getTypeErrorsFromTree
   ) where
 
 import Prelude
@@ -10,41 +7,17 @@ import Prelude
 import Control.Monad.State (execState, get, modify_)
 import Data.Either (Either(..), either)
 import Data.Foldable (class Foldable, foldl)
-import Data.Generic.Rep (class Generic)
 import Data.Lazy (force)
 import Data.List (List(..), uncons, (:))
 import Data.List.NonEmpty as NonEmpty
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
-import Data.Show.Generic (genericShow)
 import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), VarPathPart(..), Args)
 import GraphQL.Templater.JsonPos (JsonPos(..), NormalizedJsonPos(..), normalizePos)
 import GraphQL.Templater.Positions (Positions)
-import GraphQL.Templater.TypeCheck.Arguments (ArgTypeError, typeCheckArguments)
+import GraphQL.Templater.TypeCheck.Arguments (typeCheckArguments)
+import GraphQL.Templater.TypeCheck.Errors (ArgTypeError, PositionedError, TypeError(..), TypeErrorWithPath(..))
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..))
-
-data TypeErrorWithPath a = TypeErrorWithPath (TypeError a) (List (NormalizedJsonPos a)) a
-
-type PositionedError = TypeErrorWithPath Positions
-
-derive instance Generic (TypeErrorWithPath a) _
-derive instance Eq a => Eq (TypeErrorWithPath a)
-derive instance Functor TypeErrorWithPath
-instance Show a => Show (TypeErrorWithPath a) where
-  show = genericShow
-
-data TypeError a
-  = FieldNotFound
-  | NotObject
-  | NotNode
-  | NotList
-  | ArgTypeError (ArgTypeError a)
-
-derive instance Functor TypeError
-derive instance Generic (TypeError a) _
-derive instance Eq a => Eq (TypeError a)
-instance Show a => Show (TypeError a) where
-  show = genericShow
 
 getTypeErrorsFromTree :: GqlTypeTree -> List AstPos -> List PositionedError
 getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (checkAsts asts') initialState

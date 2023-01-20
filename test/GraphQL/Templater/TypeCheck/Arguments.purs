@@ -6,7 +6,8 @@ import Data.GraphQL.AST as AST
 import Data.List (List(..), (:))
 import Data.Maybe (Maybe(..))
 import GraphQL.Templater.Ast (Arg(..), ArgName(..), Value(..))
-import GraphQL.Templater.TypeCheck.Arguments (ArgTypeError(..), MismatchReason(..), typeCheckArguments)
+import GraphQL.Templater.TypeCheck.Arguments (typeCheckArguments)
+import GraphQL.Templater.TypeCheck.Errors (ArgTypeError(..), MismatchReason(..))
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 

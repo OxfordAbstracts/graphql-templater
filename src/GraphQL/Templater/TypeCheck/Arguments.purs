@@ -3,43 +3,18 @@ module GraphQL.Templater.TypeCheck.Arguments where
 import Prelude
 
 import Data.Foldable (foldl)
-import Data.Generic.Rep (class Generic)
 import Data.GraphQL.AST (ArgumentsDefinition, InputValueDefinition(..))
 import Data.GraphQL.AST as AST
 import Data.List (List(..), (:))
 import Data.List.NonEmpty as NonEmpty
-import Data.List.Types (NonEmptyList)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Newtype (unwrap)
-import Data.Show.Generic (genericShow)
 import Data.Tuple (Tuple(..))
 import GraphQL.Templater.Ast (Arg(..), ArgName(..), Args, Value(..))
+import GraphQL.Templater.TypeCheck.Errors (ArgTypeError(..), MismatchReason(..))
 
-data ArgTypeError a
-  = ArgUnknown String a
-  | ArgRequired String
-  | ArgTypeMismatch
-      { name :: String
-      , definitionType :: AST.Type
-      , argValue :: AST.Value
-      , reasons :: NonEmptyList MismatchReason
-      }
-      a
-
-derive instance Functor ArgTypeError
-derive instance Generic (ArgTypeError a) _
-derive instance Eq a => Eq (ArgTypeError a)
-instance Show a => Show (ArgTypeError a) where
-  show = genericShow
-
-data MismatchReason = NullArgForNonNullType | ValueDoesNotFitDefinition
-
-derive instance Generic MismatchReason _
-derive instance Eq MismatchReason
-instance Show MismatchReason where
-  show = genericShow
 
 typeCheckArguments :: forall a. Maybe ArgumentsDefinition -> Maybe (Args a) -> List (ArgTypeError a)
 typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil

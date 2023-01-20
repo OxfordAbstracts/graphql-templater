@@ -6,17 +6,19 @@ import Affjax.RequestHeader (RequestHeader(..))
 import Control.Monad.Error.Class (try)
 import Data.Argonaut.Core (Json)
 import Data.Array (mapMaybe)
+import Data.Array as Array
 import Data.DateTime.Instant (Instant)
 import Data.Either (Either(..), either, hush)
 import Data.Foldable (intercalate)
 import Data.GraphQL.AST.Print (printAst)
 import Data.List (List(..))
 import Data.Map as Map
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), split)
 import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
+import Debug (spy, traceM)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Exception (message)
 import Foreign.Object as Object
@@ -26,8 +28,9 @@ import GraphQL.Templater.Eval.MakeQuery (toGqlString)
 import GraphQL.Templater.GetSchema (getGqlDoc)
 import GraphQL.Templater.Parser (parse)
 import GraphQL.Templater.TypeCheck (getTypeErrorsFromTree)
+import GraphQL.Templater.TypeCheck.Errors (TypeErrorWithPath(..))
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
-import GraphQL.Templater.View.Editor (ViewUpdate, getViewUpdateContent)
+import GraphQL.Templater.View.Editor (Diagnostic, ViewUpdate, getViewUpdateContent)
 import GraphQL.Templater.View.Editor as Editor
 import Halogen (ClassName(..), liftEffect)
 import Halogen as H
@@ -36,7 +39,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (class_)
 import Halogen.HTML.Properties as HP
-import Parsing (ParseError, parseErrorMessage)
+import Parsing (ParseError(..), Position(..))
 import Type.Proxy (Proxy(..))
 
 data Action
@@ -49,12 +52,14 @@ type State =
   { url :: String
   , headers :: String
   , template :: String
-  , ast :: Maybe (Either ParseError (List AstPos))
+  , ast :: Maybe (List AstPos)
+  , diagnostics :: Array Diagnostic
   , result :: String
   , printedSchema :: Maybe String
   , schemaTypeTree :: Maybe GqlTypeTree
   , fullQueryCache :: Map.Map String Json
   , mostRecentEval :: Maybe Instant
+  -- , editorView :: Maybe Editor.EditorView
   }
 
 component :: forall output m q input. MonadAff m => H.Component q input output m
@@ -76,6 +81,7 @@ component =
     , template: initialQuery
     , ast: Nothing
     , result: ""
+    , diagnostics: []
     , printedSchema: Nothing
     , schemaTypeTree: Nothing
     , fullQueryCache: Map.empty
@@ -98,21 +104,27 @@ component =
           , HE.onValueInput SetHeaders
           , css "font-mono border-2 rounded-md p-1 m-2 h-12 whitespace-pre-wrap"
           ]
-      , HH.slot (Proxy :: Proxy "Editor") unit Editor.component { doc: initialQuery } case _ of
-          Editor.DocChanged viewUpdate -> SetTemplate viewUpdate
+      , HH.slot (Proxy :: Proxy "Editor") unit Editor.component
+          { doc: initialQuery
+          , lint: \v -> do 
+              traceM {v}
+              pure $ spy "diagnostics" state.diagnostics
+          }
+          case _ of
+            Editor.DocChanged viewUpdate -> SetTemplate viewUpdate
 
-      , HH.div []
-          case asts, state.schemaTypeTree of
-            Right Nil, _ -> []
-            Right asts', Just typeTree ->
-              [ HH.div [] [ HH.text "Errors:" ]
-              , HH.pre
-                  [ HP.ref resultLabel
-                  , css "border-2 rounded-md p-1 m-2 whitespace-pre-wrap"
-                  ]
-                  [ HH.text $ show $ getTypeErrorsFromTree typeTree asts' ]
-              ]
-            _, _ -> []
+      -- , HH.div []
+      --     case asts, state.schemaTypeTree of
+      --       Right Nil, _ -> []
+      --       Right asts', Just typeTree ->
+      --         [ HH.div [] [ HH.text "Errors:" ]
+      --         , HH.pre
+      --             [ HP.ref resultLabel
+      --             , css "border-2 rounded-md p-1 m-2 whitespace-pre-wrap"
+      --             ]
+      --             [ HH.text $ show $ getTypeErrorsFromTree typeTree asts' ]
+      --         ]
+      --       _, _ -> []
 
       , HH.div [] [ HH.text "Result:" ]
       , HH.pre
@@ -123,12 +135,12 @@ component =
 
       , HH.pre
           [ css "border-2 rounded-md p-1 m-2 whitespace-pre" ]
-          [ HH.text $ either parseErrorMessage (toGqlString >>> fromMaybe "No query") asts
+          [ HH.text $ (toGqlString >>> fromMaybe "No query") asts
           ]
 
       , HH.pre
           [ css "border-2 rounded-md p-1 m-2" ]
-          [ HH.text $ either parseErrorMessage (map (map (const unit) >>> show) >>> intercalate "\n") asts
+          [ HH.text $ (map (map (const unit) >>> show) >>> intercalate "\n") asts
           ]
 
       , HH.pre
@@ -139,7 +151,8 @@ component =
           ]
       ]
     where
-    asts = fromMaybe (pure Nil) state.ast
+    asts :: List AstPos
+    asts = fromMaybe (Nil) state.ast
 
   handleAction = case _ of
     Init -> loadSchema
@@ -150,10 +163,34 @@ component =
       H.modify_ _ { headers = headers }
     SetTemplate viewUpdate -> do
       template <- liftEffect $ getViewUpdateContent viewUpdate
-      { url, headers } <- H.modify _ { template = template }
+      { url, headers, schemaTypeTree, diagnostics: prevDiagnostics } <- H.modify _ { template = template }
       case parse template of
-        Left _ -> pure unit
+        Left (ParseError err (Position pos)) -> H.modify_ _
+          { diagnostics = pure
+              { from: pos.index
+              , message: err
+              , severity: Editor.Error
+              , to: pos.index + 1
+              }
+          }
         Right ast -> do
+          let typeErrors = maybe Nil (flip getTypeErrorsFromTree ast) schemaTypeTree
+          { diagnostics } <- H.modify _
+            { diagnostics = Array.fromFoldable $ (spy "typeErrors" typeErrors)
+                <#> \(TypeErrorWithPath err _path { start: Position start, end: Position end }) ->
+                  { from: start.index
+                  , message: show err
+                  , severity: Editor.Error
+                  , to: end.index
+                  }
+            }
+          
+          H.tell _editor unit $ Editor.Relint (\_ -> pure diagnostics)
+
+          -- when (not null diagnostics || not null prevDiagnostics) do
+          --   for_ view \v -> 
+          --     H.liftEffect $ relint (\_ -> pure diagnostics) v
+
           res <- eval
             { ast
             , url
@@ -165,8 +202,11 @@ component =
           case res of
             NoQuery -> pure unit
             DidNotRun -> pure unit
-            EvalFailure err -> H.modify_ _ { result = show err, ast = Just $ Right ast }
-            EvalSuccess resultStr -> H.modify_ _ { result = resultStr, ast = Just $ Right ast }
+            EvalFailure err -> H.modify_ _
+              { result = show err
+              , ast = Just ast
+              }
+            EvalSuccess resultStr -> H.modify_ _ { result = resultStr, ast = Just ast }
 
     where
     loadSchema = do
@@ -189,6 +229,8 @@ component =
 
   resultLabel = H.RefLabel "result"
 
+
+_editor = Proxy :: Proxy "Editor"
 -- where 
 
 css

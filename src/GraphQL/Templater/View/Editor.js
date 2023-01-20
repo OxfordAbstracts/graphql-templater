@@ -1,8 +1,11 @@
 // import {EditorView, basicSetup} from "codemirror"
 import { EditorView, basicSetup } from "codemirror";
+import { linter } from "@codemirror/lint";
+import { EditorState, Compartment } from "@codemirror/state";
+let linting = new Compartment();
 
 export const makeView =
-  ({ parent, doc, onChange }) =>
+  ({ parent, doc, onChange, lint }) =>
   () => {
     return new EditorView({
       extensions: [
@@ -12,6 +15,11 @@ export const makeView =
             onChange(update)();
           }
         }),
+        linting.of(
+          linter((view) => {
+            return lint(view)();
+          })
+        ),
       ],
       parent,
       doc,
@@ -24,4 +32,16 @@ export const getViewContent = (view) => () => {
 
 export const getViewUpdateContent = (viewUpdate) => () => {
   return viewUpdate.state.doc.toString();
-}
+};
+
+export const relintImpl =
+  ({ view, lint }) =>
+  () => {
+    view.dispatch({
+      effects: linting.reconfigure(
+        linter((view) => {
+          return lint(view)();
+        })
+      ),
+    });
+  };
