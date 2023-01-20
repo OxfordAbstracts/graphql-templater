@@ -106,8 +106,8 @@ component =
           ]
       , HH.slot (Proxy :: Proxy "Editor") unit Editor.component
           { doc: initialQuery
-          , lint: \v -> do 
-              traceM {v}
+          , lint: \v -> do
+              traceM { v }
               pure $ spy "diagnostics" state.diagnostics
           }
           case _ of
@@ -184,7 +184,7 @@ component =
                   , to: end.index
                   }
             }
-          
+
           H.tell _editor unit $ Editor.Relint (\_ -> pure diagnostics)
 
           -- when (not null diagnostics || not null prevDiagnostics) do
@@ -229,8 +229,8 @@ component =
 
   resultLabel = H.RefLabel "result"
 
-
 _editor = Proxy :: Proxy "Editor"
+
 -- where 
 
 css

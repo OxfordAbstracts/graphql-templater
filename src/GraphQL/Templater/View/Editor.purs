@@ -9,8 +9,7 @@ module GraphQL.Templater.View.Editor
   , ViewUpdate(..)
   , component
   , getViewUpdateContent
-  )
-  where
+  ) where
 
 import Prelude
 

@@ -15,7 +15,6 @@ import Data.Tuple (Tuple(..))
 import GraphQL.Templater.Ast (Arg(..), ArgName(..), Args, Value(..))
 import GraphQL.Templater.TypeCheck.Errors (ArgTypeError(..), MismatchReason(..))
 
-
 typeCheckArguments :: forall a. Maybe ArgumentsDefinition -> Maybe (Args a) -> List (ArgTypeError a)
 typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
   where
