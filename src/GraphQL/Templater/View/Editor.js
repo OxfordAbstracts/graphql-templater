@@ -17,7 +17,7 @@ export const makeView =
         }),
         linting.of(
           linter((view) => {
-            return lint(view)();
+            return lint;
           })
         ),
       ],
@@ -40,7 +40,8 @@ export const relintImpl =
     view.dispatch({
       effects: linting.reconfigure(
         linter((view) => {
-          return lint(view)();
+          console.log('linting', lint)
+          return lint;
         })
       ),
     });

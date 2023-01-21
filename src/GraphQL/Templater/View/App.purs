@@ -28,6 +28,7 @@ import GraphQL.Templater.GetSchema (getGqlDoc)
 import GraphQL.Templater.Parser (parse)
 import GraphQL.Templater.TypeCheck (getTypeErrorsFromTree)
 import GraphQL.Templater.TypeCheck.Errors (TypeErrorWithPath(..))
+import GraphQL.Templater.TypeCheck.Errors.Display (displayPositionedError)
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
 import GraphQL.Templater.View.Editor (Diagnostic, ViewUpdate, getViewUpdateContent)
 import GraphQL.Templater.View.Editor as Editor
@@ -52,7 +53,7 @@ type State =
   , headers :: String
   , template :: String
   , ast :: Maybe (List AstPos)
-  , diagnostics :: Array Diagnostic
+  , errorDiagnostics :: Array Diagnostic
   , result :: String
   , printedSchema :: Maybe String
   , schemaTypeTree :: Maybe GqlTypeTree
@@ -80,7 +81,7 @@ component =
     , template: initialQuery
     , ast: Nothing
     , result: ""
-    , diagnostics: []
+    , errorDiagnostics: []
     , printedSchema: Nothing
     , schemaTypeTree: Nothing
     , fullQueryCache: Map.empty
@@ -105,24 +106,10 @@ component =
           ]
       , HH.slot (Proxy :: Proxy "Editor") unit Editor.component
           { doc: initialQuery
-          , lint: \_v -> do
-              pure $ state.diagnostics
+          , lint: state.errorDiagnostics
           }
           case _ of
             Editor.DocChanged viewUpdate -> SetTemplate viewUpdate
-
-      -- , HH.div []
-      --     case asts, state.schemaTypeTree of
-      --       Right Nil, _ -> []
-      --       Right asts', Just typeTree ->
-      --         [ HH.div [] [ HH.text "Errors:" ]
-      --         , HH.pre
-      --             [ HP.ref resultLabel
-      --             , css "border-2 rounded-md p-1 m-2 whitespace-pre-wrap"
-      --             ]
-      --             [ HH.text $ show $ getTypeErrorsFromTree typeTree asts' ]
-      --         ]
-      --       _, _ -> []
 
       , HH.div [] [ HH.text "Result:" ]
       , HH.pre
@@ -164,7 +151,7 @@ component =
       { url, headers, schemaTypeTree } <- H.modify _ { template = template }
       case parse template of
         Left (ParseError err (Position pos)) -> H.modify_ _
-          { diagnostics = pure
+          { errorDiagnostics = pure
               { from: pos.index
               , message: err
               , severity: Editor.Error
@@ -173,21 +160,17 @@ component =
           }
         Right ast -> do
           let typeErrors = maybe Nil (flip getTypeErrorsFromTree ast) schemaTypeTree
-          { diagnostics } <- H.modify _
-            { diagnostics = Array.fromFoldable $ typeErrors
-                <#> \(TypeErrorWithPath err _path { start: Position start, end: Position end }) ->
+          { errorDiagnostics } <- H.modify _
+            { errorDiagnostics = Array.fromFoldable $ typeErrors
+                <#> \err@(TypeErrorWithPath _ _path { start: Position start, end: Position end }) ->
                   { from: start.index
-                  , message: show err
+                  , message: displayPositionedError err
                   , severity: Editor.Error
                   , to: end.index
                   }
             }
 
-          H.tell _editor unit $ Editor.Relint (\_ -> pure diagnostics)
-
-          -- when (not null diagnostics || not null prevDiagnostics) do
-          --   for_ view \v -> 
-          --     H.liftEffect $ relint (\_ -> pure diagnostics) v
+          H.tell _editor unit $ Editor.Relint errorDiagnostics
 
           res <- eval
             { ast

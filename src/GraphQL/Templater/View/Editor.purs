@@ -1,7 +1,6 @@
 module GraphQL.Templater.View.Editor
   ( Diagnostic
   , EditorView(..)
-  , GetDiagnostics
   , Input
   , Output(..)
   , Query(..)
@@ -28,12 +27,12 @@ import Web.DOM (Element)
 
 type Input =
   { doc :: String
-  , lint :: GetDiagnostics -- TODO: replace with 
+  , lint :: Array Diagnostic
   }
 
 data Query a
   = GetContent (Maybe String -> a)
-  | Relint GetDiagnostics a
+  | Relint (Array Diagnostic) a
 
 type State =
   { input :: Input
@@ -76,7 +75,7 @@ component =
           { parent
           , doc
           , onChange: HS.notify listener <<< HandleChange
-          , lint: map (map toForeignDiagnostic) <$> lint
+          , lint: toForeignDiagnostic <$> lint
           }
         H.modify_ _
           { view = Just view
@@ -108,23 +107,19 @@ foreign import makeView
   :: { parent :: Element
      , doc :: String
      , onChange :: ViewUpdate -> Effect Unit
-     , lint :: GetDiagnosticsForeign
+     , lint :: Array DiagnosticForeign
      }
   -> Effect EditorView
-
-type GetDiagnosticsForeign = EditorView -> Effect (Array DiagnosticForeign)
-
-type GetDiagnostics = EditorView -> Effect (Array Diagnostic)
 
 foreign import getViewContent :: EditorView -> Effect String
 foreign import getViewUpdateContent :: ViewUpdate -> Effect String
 
-relint :: forall m. MonadEffect m => GetDiagnostics -> EditorView -> m Unit
-relint lint view = liftEffect $ relintImpl { view, lint: map (map toForeignDiagnostic) <$> lint }
+relint :: forall m. MonadEffect m => Array Diagnostic -> EditorView -> m Unit
+relint lint view = liftEffect $ relintImpl { view, lint: toForeignDiagnostic <$> lint }
 
 foreign import relintImpl
   :: { view :: EditorView
-     , lint :: GetDiagnosticsForeign
+     , lint :: Array DiagnosticForeign
      }
   -> Effect Unit
 
