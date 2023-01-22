@@ -18,6 +18,7 @@ import Data.String (Pattern(..), split)
 import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
+import Debug (spy, spyWith)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Exception (message)
 import Foreign.Object as Object
@@ -159,7 +160,7 @@ component =
               }
           }
         Right ast -> do
-          let typeErrors = maybe Nil (flip getTypeErrorsFromTree ast) schemaTypeTree
+          let typeErrors = spyWith "typeErrors" Array.fromFoldable $ maybe Nil (flip getTypeErrorsFromTree ast) schemaTypeTree
           { errorDiagnostics } <- H.modify _
             { errorDiagnostics = Array.fromFoldable $ typeErrors
                 <#> \err@(TypeErrorWithPath _ _path { start: Position start, end: Position end }) ->

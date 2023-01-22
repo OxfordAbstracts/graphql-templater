@@ -2,6 +2,7 @@ module GraphQL.Templater.TypeCheck.Arguments where
 
 import Prelude
 
+import Data.Array as Array
 import Data.Foldable (foldl)
 import Data.GraphQL.AST (ArgumentsDefinition, InputValueDefinition(..))
 import Data.GraphQL.AST as AST
@@ -12,14 +13,15 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
+import Debug (spy, spyWith)
 import GraphQL.Templater.Ast (Arg(..), ArgName(..), Args, Value(..))
 import GraphQL.Templater.TypeCheck.Errors (ArgTypeError(..), MismatchReason(..))
 
 typeCheckArguments :: forall a. Maybe ArgumentsDefinition -> Maybe (Args a) -> List (ArgTypeError a)
-typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
+typeCheckArguments argsDef = spyWith "typeCheckArguments" Array.fromFoldable <<< go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
   where
   go :: List InputValueDefinition -> Args a -> List (ArgTypeError a)
-  go defs args = foldl checkDef Nil defs <> foldl checkArg Nil args
+  go defs args = foldl checkDef Nil defs <> foldl checkArg Nil (spyWith "args" Array.fromFoldable args)
     where
     checkDef :: List (ArgTypeError a) -> InputValueDefinition -> List (ArgTypeError a)
     checkDef res (InputValueDefinition { defaultValue, name, type: type_ }) =
@@ -48,7 +50,7 @@ typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
       AST.Type_NonNullType _ -> false
 
     checkArg :: List (ArgTypeError a) -> Arg a -> List (ArgTypeError a)
-    checkArg res (Arg { name: ArgName name a } _) =
+    checkArg res (Arg { name: ArgName name a } _) = spyWith ("checkArg " <> name) Array.fromFoldable
       case Map.lookup name defsMap of
         Nothing -> ArgUnknown name a : res
         _ -> res

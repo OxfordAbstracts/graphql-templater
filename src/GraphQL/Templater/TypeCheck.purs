@@ -6,7 +6,7 @@ import Prelude
 
 import Control.Monad.State (execState, get, modify_)
 import Data.Either (Either(..), either)
-import Data.Foldable (class Foldable, foldl)
+import Data.Foldable (class Foldable, foldl, null)
 import Data.Lazy (force)
 import Data.List (List(..), uncons, (:))
 import Data.List.NonEmpty as NonEmpty
@@ -50,20 +50,24 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
                   }
             checkAsts tail
           Each (VarPath v _) inner _p -> do
-            originalSt <- get
-            modify_ \st ->
-              let
-                path' = varPathToPosAndArgs v <> st.path
-                path = normalizePos path'
-              in
-                st
-                  { errors =
-                      getEachPathErrors path (getStartPos v) typeTree path
-                        <> st.errors
-                  , path = path'
-                  }
-            checkAsts inner
-            modify_ \st -> st { path = originalSt.path }
+            st <- get
+
+            let
+              path' = varPathToPosAndArgs v <> st.path
+              path = normalizePos path'
+              newErrors = getEachPathErrors path (getStartPos v) typeTree path
+
+            modify_ \st_ ->
+              st_
+                { errors = newErrors <> st_.errors
+                , path = path'
+                }
+
+            when (null newErrors) $
+              checkAsts inner
+
+            modify_ _ { path = st.path }
+
             checkAsts tail
 
           Text _ _ -> checkAsts tail

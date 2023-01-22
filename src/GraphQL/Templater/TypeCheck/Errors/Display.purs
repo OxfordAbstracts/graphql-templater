@@ -27,7 +27,9 @@ displayPositionedError (TypeErrorWithPath typeError path _pos) = case typeError 
       close <- closest node $ Array.fromFoldable fields
       pure $ "\nPerhaps you meant " <> show close <> "?"
 
-  NotObject -> "Not an object"
+  NotObject -> fromMaybe "Not an object" do
+    parent <- parentField
+    pure $ show parent <> " is not an object.\n You cannot perform a dot lookup on it."
 
   ObjectWhenNodeExpected fields -> case nodeField of
     Just node -> show node <> " is an object, not a node." <> suggestion

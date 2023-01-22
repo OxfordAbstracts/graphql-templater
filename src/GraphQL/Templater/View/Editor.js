@@ -40,6 +40,7 @@ export const relintImpl =
     view.dispatch({
       effects: linting.reconfigure(
         linter((view) => {
+          console.log({lint})
           return lint;
         })
       ),
