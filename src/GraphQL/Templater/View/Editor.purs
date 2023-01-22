@@ -14,7 +14,6 @@ import Prelude
 
 import Data.Foldable (for_)
 import Data.Maybe (Maybe(..))
-import Debug (traceM)
 import Effect (Effect)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect)
@@ -96,8 +95,6 @@ component =
 
     Relint lint reply -> do
       { view } <- H.get
-      traceM "Relint"
-      traceM { lint }
       for_ view (relint lint)
       pure $ Just reply
 
