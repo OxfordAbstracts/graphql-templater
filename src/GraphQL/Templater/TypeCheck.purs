@@ -69,6 +69,26 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
             modify_ _ { path = st.path }
 
             checkAsts tail
+          With (VarPath v _) inner _p -> do
+            st <- get
+
+            let
+              path' = varPathToPosAndArgs v <> st.path
+              path = normalizePos path'
+              newErrors = getWithPathErrors path (getStartPos v) typeTree path
+
+            modify_ \st_ ->
+              st_
+                { errors = newErrors <> st_.errors
+                , path = path'
+                }
+
+            when (null newErrors) $
+              checkAsts inner
+
+            modify_ _ { path = st.path }
+
+            checkAsts tail
 
           Text _ _ -> checkAsts tail
 
@@ -86,6 +106,17 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
       ListType _t -> Nil
       Node _ -> notList
       GqlUndefined -> notList
+
+  getWithPathErrors fullPath positions = getErrors atEnd fullPath positions
+    where
+    notObject = pure $ TypeErrorWithPath NotObject fullPath positions
+
+    atEnd = case _ of
+      ObjectType _ -> Nil
+      NonNull t -> atEnd t
+      ListType _t -> notObject
+      Node _ -> notObject
+      GqlUndefined -> notObject
 
   getVarPathErrors
     :: List (NormalizedJsonPos PosAndArgs)

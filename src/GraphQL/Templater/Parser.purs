@@ -28,6 +28,7 @@ parse str = runParser str (manyTill astParser eof)
 astParser :: Parser String AstPos
 astParser = withPositions $ oneOf
   [ eachP
+  , withP
   , varP
   , textP
   ]
@@ -48,6 +49,15 @@ astParser = withPositions $ oneOf
     _ <- string "}}"
     asts <- manyTill astParser (string "{{/each}}")
     pure $ Each varPath asts
+
+  withP = do
+    _ <- try $ string "{{#with"
+    skipSpaces
+    varPath <- varPathParser
+    skipSpaces
+    _ <- string "}}"
+    asts <- manyTill astParser (string "{{/with}}")
+    pure $ With varPath asts
 
   textP = do
     chars <- try $ many1Till anyChar (lookAhead $ void (string "{{") <|> eof)

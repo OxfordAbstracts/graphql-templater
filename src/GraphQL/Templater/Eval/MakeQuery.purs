@@ -88,6 +88,10 @@ makeSelections topLevelAsts =
       go (normalizePath ancestors (NonEmpty.toList v))
         (normalizeAndInsertPath true ancestors res v)
         ast
+    With (VarPath v _) ast _ ->
+      go (normalizePath ancestors (NonEmpty.toList v))
+        (normalizeAndInsertPath true ancestors res v)
+        ast
     Text _ _ -> res
 
   normalizeAndInsertPath withTypename ancestors res v =
@@ -117,6 +121,7 @@ hasQuery = foldl step false
   step res = case _ of
     Var _ _ -> true
     Each _ _ast _ -> true
+    With _ _ast _ -> true
     Text _ _ -> res
 
 normalizePath :: forall a. List (Tuple (Args a) String) -> List (VarPathPart a) -> List (Tuple (Args a) String)

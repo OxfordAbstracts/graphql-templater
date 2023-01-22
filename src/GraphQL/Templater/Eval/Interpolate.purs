@@ -32,6 +32,8 @@ interpolate = go Nil
         in
           fold $ arr # mapWithIndex \idx _json' ->
             go (addJsonIdx idx $ varPathToPosition v <> path) asts' json
+      Ast.With (VarPath v _) asts' _ ->
+        go (varPathToPosition v <> path) asts' json
 
       where
       lookupJson v = foldl step json fullPath

@@ -12,6 +12,7 @@ import GraphQL.Templater.Positions (Positions)
 data Ast a
   = Var (VarPath a) a
   | Each (VarPath a) (List (Ast a)) a
+  | With (VarPath a) (List (Ast a)) a
   | Text String a
 
 type AstPos = Ast Positions
