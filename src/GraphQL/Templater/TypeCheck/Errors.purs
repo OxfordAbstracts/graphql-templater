@@ -6,6 +6,7 @@ import Data.Generic.Rep (class Generic)
 import Data.GraphQL.AST as AST
 import Data.List (List)
 import Data.List.Types (NonEmptyList)
+import Data.Set (Set)
 import Data.Show.Generic (genericShow)
 import GraphQL.Templater.JsonPos (NormalizedJsonPos)
 import GraphQL.Templater.Positions (Positions)
@@ -21,9 +22,9 @@ instance Show a => Show (TypeErrorWithPath a) where
   show = genericShow
 
 data TypeError a
-  = FieldNotFound
+  = FieldNotFound (Set String)
   | NotObject
-  | NotNode
+  | ObjectWhenNodeExpected (Set String)
   | NotList
   | ArgTypeError (ArgTypeError a)
 

@@ -7,6 +7,7 @@ import Data.Either (Either(..))
 import Data.GraphQL.Parser (document)
 import Data.List (List(..), (:))
 import Data.Maybe (fromMaybe)
+import Data.Set as Set
 import Effect.Exception (Error, error)
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
 import GraphQL.Templater.Parser (parse)
@@ -48,7 +49,7 @@ spec = do
 
         errors <- throwParser $ typeCheck simpleSchema template
         errors `shouldEqual`
-          ( TypeErrorWithPath FieldNotFound
+          ( TypeErrorWithPath (FieldNotFound $ Set.fromFoldable [ "foo" ])
               ( ( Key "bar"
                     { end: (Position { column: 10, index: 9, line: 1 })
                     , start: (Position { column: 7, index: 6, line: 1 })
@@ -65,11 +66,11 @@ spec = do
 
         errors <- typeCheckNoPos usersSchema template
         errors `shouldEqual`
-          ( TypeErrorWithPath FieldNotFound
+          ( TypeErrorWithPath (FieldNotFound $ Set.fromFoldable [ "user", "users", "top_level" ])
               ( (Key "baz" unit) : Nil
               )
               unit
-              : TypeErrorWithPath FieldNotFound
+              : TypeErrorWithPath (FieldNotFound $ Set.fromFoldable [ "user", "users", "top_level" ])
                   ( (Key "bar" unit) : Nil
                   )
                   unit
@@ -95,7 +96,7 @@ spec = do
 
         errors <- typeCheckNoPos usersSchema template
         errors `shouldEqual`
-          ( TypeErrorWithPath FieldNotFound
+          ( TypeErrorWithPath (FieldNotFound $ Set.fromFoldable [ "id", "name", "friends" ])
               ( Key "user" unit
                   : Key "not_here" unit
                   : Nil
@@ -130,7 +131,7 @@ spec = do
 
         errors <- typeCheckNoPos usersSchema template
         errors `shouldEqual`
-          ( ( TypeErrorWithPath FieldNotFound
+          ( ( TypeErrorWithPath (FieldNotFound $ Set.fromFoldable [ "friends", "id", "name" ])
                 ( (Key "users" unit)
                     : (Key "top_level" unit)
                     : Nil
@@ -145,7 +146,7 @@ spec = do
 
         errors <- typeCheckNoPos usersSchema template
         errors `shouldEqual`
-          ( ( TypeErrorWithPath FieldNotFound
+          ( ( TypeErrorWithPath (FieldNotFound $ Set.fromFoldable [ "friends", "id", "name" ])
                 ( (Key "user" unit)
                     : (Key "friends" unit)
                     : (Key "friends" unit)

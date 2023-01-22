@@ -91,14 +91,13 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
     -> List (TypeErrorWithPath PosAndArgs)
   getVarPathErrors fullPath positions = getErrors atEnd fullPath positions
     where
-    notNode = pure $ TypeErrorWithPath NotNode fullPath positions
-
     atEnd = case _ of
-      ObjectType _ -> notNode
+      ObjectType obj -> pure
+        $ TypeErrorWithPath (ObjectWhenNodeExpected $ Map.keys obj) fullPath positions
       NonNull t -> atEnd t
-      ListType _t -> notNode
+      ListType t -> atEnd t
       Node _ -> Nil
-      GqlUndefined -> notNode
+      GqlUndefined -> Nil
 
   getErrors
     :: (GqlTypeTree -> List (TypeErrorWithPath PosAndArgs))
@@ -134,7 +133,7 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
     addNullArgs = map { pos: _, args: Nothing }
 
   lookupType k p path t = case force <$> Map.lookup k t of
-    Nothing -> Left $ TypeErrorWithPath FieldNotFound path p
+    Nothing -> Left $ TypeErrorWithPath (FieldNotFound $ Map.keys t) path p
     Just ret -> Right ret
 
   getTypeMap k p path = case _ of
