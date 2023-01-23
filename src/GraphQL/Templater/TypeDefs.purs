@@ -26,7 +26,6 @@ import Data.String (stripSuffix)
 import Data.Tuple (Tuple(..), uncurry)
 import Record as Record
 import Type.Proxy (Proxy(..))
-import Unsafe.Coerce (unsafeCoerce)
 
 type TypeMap = Map String TypeFieldValue
 
