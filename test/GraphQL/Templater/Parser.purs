@@ -130,14 +130,3 @@ line1 start end =
   { start: Position { line: 1, column: start, index: start - 1 }
   , end: Position { line: 1, column: end, index: end - 1 }
   }
-
--- x =
---   ( Right
---       ( ( Text "test"
---             { end:
---                 (Position { column: 5, index: 4, line: 1 })
---             , start: (Position { column: 1, index: 0, line: 1 })
---             }
---         ) : Nil
---       )
---   )

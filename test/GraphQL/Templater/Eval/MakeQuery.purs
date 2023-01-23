@@ -43,7 +43,7 @@ spec = do
               unit : Nil
           ) `shouldEqualWoWs` Just "query {  __typename test {  __typename } } "
 
-      it "should return a graphql query when for a simple variable ast" do
+      it "should return a graphql query for a simple variable ast" do
         toGqlString
           ( Var
               ( VarPath
@@ -58,8 +58,12 @@ spec = do
               unit : Nil
           ) `shouldEqualWoWs` Just "query { __typename test } "
 
-      it "should return a graphql query when for a variable in an each" do
+      it "should return a graphql query for a variable in an each" do
         parseAndMakeQuery "{{#each item}}{{field}}{{/each}}"
+          `shouldEqualWoWs` Just "query { __typename item { __typename field } } "
+
+      it "should return a graphql query for a variable in a with" do
+        parseAndMakeQuery "{{#with item}}{{field}}{{/with}}"
           `shouldEqualWoWs` Just "query { __typename item { __typename field } } "
 
 shouldEqualWoWs :: forall m. MonadThrow Error m => Maybe String -> Maybe String -> m Unit

@@ -118,12 +118,33 @@ spec = do
         errors <- typeCheckNoPos usersSchema template
         errors `shouldEqual` Nil
 
+      it "should return no errors with a valid \"with\"" do
+        let
+          template = "{{#with user(id:1)}}{{id}}{{/with}}"
+
+        errors <- typeCheckNoPos usersSchema template
+        errors `shouldEqual` Nil
+
+      it "should return no errors with a valid each using parent" do
+        let
+          template = "{{#each users}}{{*parent.top_level}}{{/each}}"
+
+        errors <- typeCheckNoPos usersSchema template
+        errors `shouldEqual` Nil
+
       it "should return an error if the each field is not a list" do
         let
           template = "{{#each user(id: 1)}}{{id}}{{/each}}"
 
         errors <- typeCheckNoPos usersSchema template
         errors `shouldEqual` ((TypeErrorWithPath NotList ((Key "user" unit) : Nil) unit) : Nil)
+
+      it "should return an error if the with field is not a object" do
+        let
+          template = "{{#with users}}{{id}}{{/with}}"
+
+        errors <- typeCheckNoPos usersSchema template
+        errors `shouldEqual` ((TypeErrorWithPath NotObject ((Key "users" unit) : Nil) unit) : Nil)
 
       it "should return an error if variable inside an each is not a child of the each" do
         let

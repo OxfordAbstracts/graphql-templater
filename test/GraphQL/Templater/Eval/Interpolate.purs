@@ -56,6 +56,19 @@ spec = do
           )
           testJson `shouldEqual` " start 1 a end  start 2 b end "
 
+      it "should interpolate \"withs\" with vars" do
+        interpolate
+          ( With (mkPath $ pure "obj")
+              ( Text " start " unit
+                  : mkVar "a"
+                  : Text " end " unit
+                  : Nil
+              )
+              unit
+              : Nil
+          )
+          testJson `shouldEqual` " start a end "
+
       it "should interpolate eaches with multilevel lookups" do
         interpolate
           ( Each (mkPath $ pure "arr")
