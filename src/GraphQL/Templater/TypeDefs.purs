@@ -10,7 +10,7 @@ module GraphQL.Templater.TypeDefs
 import Prelude
 
 import Control.Alt ((<|>))
-import Data.GraphQL.AST (ArgumentsDefinition, OperationType(..))
+import Data.GraphQL.AST (ArgumentsDefinition, OperationType(..), TypeDefinition)
 import Data.GraphQL.AST as AST
 import Data.Lazy (Lazy, defer, force)
 import Data.Lens (Traversal', prism', toListOf, traversed)
@@ -26,6 +26,7 @@ import Data.String (stripSuffix)
 import Data.Tuple (Tuple(..), uncurry)
 import Record as Record
 import Type.Proxy (Proxy(..))
+import Unsafe.Coerce (unsafeCoerce)
 
 type TypeMap = Map String TypeFieldValue
 
@@ -39,7 +40,6 @@ data GqlTypeTree
   | ObjectType TypeMap
   | ListType GqlTypeTree
   | NonNull GqlTypeTree
-  | GqlUndefined
 
 getTypeAtPath :: List String -> GqlTypeTree -> Maybe GqlTypeTree
 getTypeAtPath path tree = case path of
@@ -49,7 +49,6 @@ getTypeAtPath path tree = case path of
     ListType t -> getTypeAtPath path t
     NonNull t -> getTypeAtPath path t
     Node n -> Just $ Node n
-    GqlUndefined -> Just GqlUndefined
 
 getTypeTreeFromDoc :: AST.Document -> Maybe GqlTypeTree
 getTypeTreeFromDoc doc =
@@ -69,15 +68,23 @@ getTypeTreeFromDefinitions roots defs = force <$>
         { operationType: Query, namedType } -> Just $ unwrap namedType
         _ -> Nothing
     )
-  defMap = Map.fromFoldable $ defs <#> \def -> Tuple (tdName def) $ defer \_ -> fromAst def
+  defMap = Map.fromFoldable $ defs # mapMaybe \def -> do
+    val <- fromAst def
+    pure $ Tuple (tdName def) val
 
+  fromAst :: TypeDefinition -> Maybe (Lazy GqlTypeTree)
   fromAst = case _ of
-    AST.TypeDefinition_ScalarTypeDefinition t -> Node $ _.name $ unwrap t
-    AST.TypeDefinition_ObjectTypeDefinition t -> ObjectType $ getObjectTypeMap $ unwrap t
-    AST.TypeDefinition_InterfaceTypeDefinition _t -> GqlUndefined
-    AST.TypeDefinition_UnionTypeDefinition t -> ObjectType $ getUnionTypeMap $ maybe Nil unwrap $ _.unionMemberTypes $ unwrap t
-    AST.TypeDefinition_EnumTypeDefinition t -> Node $ _.name $ unwrap t
-    AST.TypeDefinition_InputObjectTypeDefinition t -> ObjectType $ getInputObjectTypeMap $ unwrap t
+    AST.TypeDefinition_ScalarTypeDefinition t -> Just $ defer \_ ->
+      Node $ _.name $ unwrap t
+    AST.TypeDefinition_ObjectTypeDefinition t -> Just $ defer \_ ->
+      ObjectType $ getObjectTypeMap $ unwrap t
+    AST.TypeDefinition_InterfaceTypeDefinition _t -> Nothing
+    AST.TypeDefinition_UnionTypeDefinition t -> Just $ defer \_ ->
+      ObjectType $ getUnionTypeMap $ maybe Nil unwrap $ _.unionMemberTypes $ unwrap t
+    AST.TypeDefinition_EnumTypeDefinition t -> Just $ defer \_ ->
+      Node $ _.name $ unwrap t
+    AST.TypeDefinition_InputObjectTypeDefinition t -> Just $ defer \_ ->
+      ObjectType $ getInputObjectTypeMap $ unwrap t
 
   getObjectTypeMap
     :: forall r
@@ -152,7 +159,6 @@ getTypeMapFromTree = case _ of
   ListType t -> getTypeMapFromTree t
   NonNull t -> getTypeMapFromTree t
   Node _ -> Nothing
-  GqlUndefined -> Nothing
 
 typeDefinitionLens :: Traversal' AST.Document AST.TypeDefinition
 typeDefinitionLens = uPrism AST._Document

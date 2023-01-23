@@ -249,7 +249,7 @@ typeCheck :: String -> String -> Either ParseError (List PositionedError)
 typeCheck schema template = do
   doc <- runParser schema document
   asts <- parse template
-  pure $ getTypeErrorsFromTree (fromMaybe GqlUndefined $ getTypeTreeFromDoc doc) asts
+  pure $ getTypeErrorsFromTree (fromMaybe (Node "Could not make tree") $ getTypeTreeFromDoc doc) asts
 
 throwParser :: forall m a. MonadThrow Error m => Either ParseError a -> m a
 throwParser = case _ of

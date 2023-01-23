@@ -105,7 +105,6 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
       NonNull t -> atEnd t
       ListType _t -> Nil
       Node _ -> notList
-      GqlUndefined -> notList
 
   getWithPathErrors fullPath positions = getErrors atEnd fullPath positions
     where
@@ -116,7 +115,6 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
       NonNull t -> atEnd t
       ListType _t -> notObject
       Node _ -> notObject
-      GqlUndefined -> notObject
 
   getVarPathErrors
     :: List (NormalizedJsonPos PosAndArgs)
@@ -132,7 +130,6 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
       NonNull t -> atEnd t
       ListType t -> atEnd t
       Node _ -> Nil
-      GqlUndefined -> Nil
 
   getErrors
     :: (GqlTypeTree -> List (TypeErrorWithPath PosAndArgs))
@@ -162,7 +159,6 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
         NonNull t -> go t
         ObjectType _ -> notList
         Node _ -> notList
-        GqlUndefined -> notList
 
     where
     addNullArgs = map { pos: _, args: Nothing }
@@ -176,7 +172,6 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
     NonNull t -> getTypeMap k p path t
     ListType t -> getTypeMap k p path t
     Node _ -> Left $ TypeErrorWithPath NotObject path p
-    GqlUndefined -> Left $ TypeErrorWithPath NotObject path p
 
 varPathToPosAndArgs :: forall f a. Foldable f => f (VarPathPart a) -> List (JsonPos { pos :: a, args :: Maybe (Args a) })
 varPathToPosAndArgs path = foldl step Nil path

@@ -22,7 +22,6 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import Halogen.Subscription as HS
-import Unsafe.Coerce (unsafeCoerce)
 import Web.DOM (Element)
 
 type Input =
@@ -89,9 +88,12 @@ component =
     -> H.HalogenM _ _ _ _ m (Maybe a)
   handleQuery = case _ of
     GetContent reply -> do
-      { view } <- H.get
-      content <- liftEffect $ getViewContent $ unsafeCoerce view
-      pure $ Just $ reply $ Just content
+      { view: viewMb } <- H.get
+      case viewMb of
+        Nothing -> pure $ Just $ reply Nothing
+        Just view -> do
+          content <- liftEffect $ getViewContent view
+          pure $ Just $ reply $ Just content
 
     Relint lint reply -> do
       { view } <- H.get

@@ -24,7 +24,7 @@ spec = do
       it "should return a nested type map for a simple schema" do
         doc <- parseDoc usersSchema
 
-        let tree = fromMaybe GqlUndefined $ getTypeTreeFromDoc doc
+        let tree = fromMaybe (Node "Count not get type tree") $ getTypeTreeFromDoc doc
 
         testTree tree [ "top_level" ] (Node "String")
 
@@ -44,7 +44,7 @@ spec = do
       it "should return a nested type map for a schema with unions" do
         doc <- parseDoc schemaWithUnions
 
-        let tree = fromMaybe GqlUndefined $ getTypeTreeFromDoc doc
+        let tree = fromMaybe (Node "Count not get type tree") $ getTypeTreeFromDoc doc
 
         testTree tree [ "media", "name" ] (Node "String")
 
@@ -105,4 +105,3 @@ showGqlTypeTree = case _ of
   ObjectType m -> "(ObjectType " <> show (Array.fromFoldable $ Map.keys m) <> ")"
   ListType t -> "(ListType " <> showGqlTypeTree t <> ")"
   NonNull t -> "(NonNull " <> showGqlTypeTree t <> ")"
-  GqlUndefined -> "GqlUndefined"
