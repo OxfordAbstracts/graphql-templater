@@ -29,6 +29,7 @@ import GraphQL.Templater.Parser (parse)
 import GraphQL.Templater.TypeCheck (getTypeErrorsFromTree)
 import GraphQL.Templater.TypeCheck.Errors (TypeErrorWithPath(..))
 import GraphQL.Templater.TypeCheck.Errors.Display (displayPositionedError)
+import GraphQL.Templater.TypeCheck.Errors.GetPositions (getPositions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
 import GraphQL.Templater.View.Editor (Diagnostic, ViewUpdate, getViewUpdateContent)
 import GraphQL.Templater.View.Editor as Editor
@@ -162,7 +163,10 @@ component =
           let typeErrors = maybe Nil (flip getTypeErrorsFromTree ast) schemaTypeTree
           { errorDiagnostics } <- H.modify _
             { errorDiagnostics = Array.fromFoldable $ typeErrors
-                <#> \err@(TypeErrorWithPath _ _path { start: Position start, end: Position end }) ->
+                <#> \err@(TypeErrorWithPath _ _path _) ->
+                  let 
+                    { start: Position start, end: Position end } = getPositions err
+                  in
                   { from: start.index
                   , message: displayPositionedError err
                   , severity: Editor.Error
