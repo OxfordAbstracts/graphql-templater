@@ -79,7 +79,7 @@ argument vc = withPositions
   $ map Arg
   $ { name: _, value: _ }
       <$> (withPositions $ ArgName <$> GqlParser.name)
-      <*> (withPositions $ map Value $ GqlParser.ignoreMe *> char ':' *> GqlParser.ignoreMe *> vc)
+      <*> (GqlParser.ignoreMe *> char ':' *> GqlParser.ignoreMe *> (withPositions $ map Value $ vc))
 
 varPartNameParser :: Parser String (VarPartName Positions)
 varPartNameParser = withPositions $

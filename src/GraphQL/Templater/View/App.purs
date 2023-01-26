@@ -16,8 +16,12 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), split)
 import Data.String as String
+import Data.String.Regex.Flags (noFlags)
+import Data.String.Regex.Unsafe (unsafeRegex)
 import Data.Time.Duration (Milliseconds(..))
+import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
+import Debug (traceM)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Exception (message)
 import Foreign.Object as Object
@@ -31,7 +35,7 @@ import GraphQL.Templater.TypeCheck.Errors (TypeErrorWithPath(..))
 import GraphQL.Templater.TypeCheck.Errors.Display (displayPositionedError)
 import GraphQL.Templater.TypeCheck.Errors.GetPositions (getPositions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
-import GraphQL.Templater.View.Editor (Diagnostic, ViewUpdate, getViewUpdateContent)
+import GraphQL.Templater.View.Editor (Diagnostic, ViewUpdate, getViewUpdateContent, matchBefore)
 import GraphQL.Templater.View.Editor as Editor
 import Halogen (ClassName(..), liftEffect)
 import Halogen as H
@@ -108,6 +112,33 @@ component =
       , HH.slot (Proxy :: Proxy "Editor") unit Editor.component
           { doc: initialQuery
           , lint: state.errorDiagnostics
+          , autocompletion: Just \ctx -> do
+              matchBrackets <- matchBefore (unsafeRegex """\{\{\w*""" noFlags) ctx
+              traceM { matchBrackets }
+              for matchBrackets \{ text, from } -> do
+                pure
+                  { filter: false
+                  , from
+                  , options:
+                      [ { label: "each"
+                        , detail: Just "loop over a list"
+                        , info: Nothing
+                        , type: Just "keyword"
+                        , apply: Nothing
+                        }
+                      ]
+                  }
+          --  case matchMb of 
+          --    Nothing -> pure Nothing 
+          --    Just match -> ?D
+          --  for matchMb \match -> ?d
+          --  case  match of
+          --    pattern -> expression
+          --  pure      
+          --     { filter: true
+          --     , from: 
+          --     , options :: Array Completion
+          --     }
           }
           case _ of
             Editor.DocChanged viewUpdate -> SetTemplate viewUpdate
@@ -164,14 +195,14 @@ component =
           { errorDiagnostics } <- H.modify _
             { errorDiagnostics = Array.fromFoldable $ typeErrors
                 <#> \err@(TypeErrorWithPath _ _path _) ->
-                  let 
+                  let
                     { start: Position start, end: Position end } = getPositions err
                   in
-                  { from: start.index
-                  , message: displayPositionedError err
-                  , severity: Editor.Error
-                  , to: end.index
-                  }
+                    { from: start.index
+                    , message: displayPositionedError err
+                    , severity: Editor.Error
+                    , to: end.index
+                    }
             }
 
           H.tell _editor unit $ Editor.Relint errorDiagnostics

@@ -1,22 +1,35 @@
 module GraphQL.Templater.View.Editor
-  ( Diagnostic
+  ( Completion(..)
+  , CompletionContext(..)
+  , CompletionResult
+  , CompletionSource
+  , Diagnostic
   , EditorView(..)
   , Input
+  , Match
   , Output(..)
   , Query(..)
   , Severity(..)
   , ViewUpdate(..)
   , component
+  , explicit
   , getViewUpdateContent
+  , matchBefore
   ) where
 
 import Prelude
 
+import Control.Promise (Promise, fromAff)
 import Data.Foldable (for_)
+import Data.Function.Uncurried (Fn4, mkFn4)
 import Data.Maybe (Maybe(..))
+import Data.Nullable (Nullable, notNull, null, toMaybe, toNullable)
+import Data.String.Regex (Regex)
 import Effect (Effect)
+import Effect.Aff (Aff)
 import Effect.Aff.Class (class MonadAff)
-import Effect.Class (class MonadEffect)
+import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Unsafe (unsafePerformEffect)
 import Halogen (RefLabel(..), liftEffect)
 import Halogen as H
 import Halogen.HTML as HH
@@ -27,6 +40,7 @@ import Web.DOM (Element)
 type Input =
   { doc :: String
   , lint :: Array Diagnostic
+  , autocompletion :: Maybe CompletionSource
   }
 
 data Query a
@@ -65,7 +79,7 @@ component =
   handleAction :: Action -> H.HalogenM _ _ _ _ m Unit
   handleAction = case _ of
     Init -> do
-      { input: { doc, lint } } <- H.get
+      { input: input@{ doc, lint } } <- H.get
       elMb <- H.getRef label
       for_ elMb \parent -> do
         { emitter, listener } <- H.liftEffect HS.create
@@ -75,6 +89,7 @@ component =
           , doc
           , onChange: HS.notify listener <<< HandleChange
           , lint: toForeignDiagnostic <$> lint
+          , autocomplete: toNullable $ completionSourceToForeign <$> input.autocompletion
           }
         H.modify_ _
           { view = Just view
@@ -110,6 +125,7 @@ foreign import makeView
      , doc :: String
      , onChange :: ViewUpdate -> Effect Unit
      , lint :: Array DiagnosticForeign
+     , autocomplete :: Nullable CompletionSourceForeign
      }
   -> Effect EditorView
 
@@ -144,6 +160,7 @@ type DiagnosticForeign =
   , to :: Int
   , severity :: String
   , message :: String
+
   }
 
 toForeignDiagnostic :: Diagnostic -> DiagnosticForeign
@@ -152,4 +169,93 @@ toForeignDiagnostic d = d
       Error -> "error"
       Warning -> "warning"
       Info -> "info"
+  }
+
+-- Autocompletion
+
+type CompletionSource = CompletionContext -> Aff (Maybe CompletionResult)
+
+completionSourceToForeign :: CompletionSource -> CompletionSourceForeign
+completionSourceToForeign = map (map (map completionResultToForeign >>> toNullable) >>> fromAff)
+  where
+  completionResultToForeign :: CompletionResult -> CompletionResultForeign
+  completionResultToForeign r = r
+    { options = completionToForeign <$> r.options
+    }
+
+  completionToForeign :: Completion -> CompletionForeign
+  completionToForeign c = CompletionForeign
+    c
+      { detail = toNullable c.detail
+      , info = toNullable c.info
+      , type = toNullable c.type
+      , apply = case c.apply of
+          Nothing -> null
+          Just fn -> notNull $ mkFn4 \view _completion from to ->
+            unsafePerformEffect $ fn { view, from, to }
+      }
+
+type CompletionSourceForeign = CompletionContext -> Effect (Promise (Nullable CompletionResultForeign))
+
+data CompletionContext
+
+-- | https://codemirror.net/docs/ref/#autocomplete.CompletionContext.matchBefore
+matchBefore
+  :: forall m
+   . MonadEffect m
+  => Regex
+  -> CompletionContext
+  -> m
+       ( Maybe
+           { from :: Int
+           , text :: String
+           , to :: Int
+           }
+       )
+matchBefore rgx ctx = liftEffect $ toMaybe <$> matchBeforeImpl rgx ctx
+
+foreign import matchBeforeImpl :: Regex -> CompletionContext -> Effect (Nullable Match)
+foreign import explicit :: CompletionContext -> Boolean
+
+type Match =
+  { text :: String
+  , from :: Int
+  , to :: Int
+  }
+
+-- | https://codemirror.net/docs/ref/#autocomplete.CompletionResult
+type CompletionResult =
+  { from :: Int
+  , filter :: Boolean
+  , options :: Array Completion
+  }
+
+type CompletionResultForeign =
+  { from :: Int
+  , filter :: Boolean
+  , options :: Array CompletionForeign
+  }
+
+-- | https://codemirror.net/docs/ref/#autocomplete.Completion
+type Completion =
+  { label :: String
+  , detail :: Maybe String
+  , info :: Maybe String
+  , type :: Maybe String
+  , apply ::
+      Maybe
+        ( { view :: EditorView
+          , from :: Int
+          , to :: Int
+          }
+          -> Effect Unit
+        )
+  }
+
+newtype CompletionForeign = CompletionForeign
+  { label :: String
+  , detail :: Nullable String
+  , info :: Nullable String
+  , type :: Nullable String
+  , apply :: Nullable (Fn4 EditorView CompletionForeign Int Int Unit)
   }
