@@ -1,8 +1,6 @@
 module GraphQL.Templater.TypeCheck.Errors.GetPositions where
 
-
 import GraphQL.Templater.TypeCheck.Errors (ArgTypeError(..), TypeError(..), TypeErrorWithPath(..))
-
 
 -- | Get the position of the error as it should appear to a user.
 getPositions :: forall a. TypeErrorWithPath a -> a

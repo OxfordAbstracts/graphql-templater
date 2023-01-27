@@ -13,6 +13,7 @@ module GraphQL.Templater.View.Editor
   , ViewUpdate(..)
   , component
   , explicit
+  , getViewContent
   , getViewUpdateContent
   , matchBefore
   ) where
@@ -28,7 +29,7 @@ import Data.String.Regex (Regex)
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Aff.Class (class MonadAff)
-import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Class (class MonadEffect)
 import Effect.Unsafe (unsafePerformEffect)
 import Halogen (RefLabel(..), liftEffect)
 import Halogen as H

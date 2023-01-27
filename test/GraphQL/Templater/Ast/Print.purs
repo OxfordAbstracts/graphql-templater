@@ -3,7 +3,6 @@ module Test.GraphQL.Templater.Ast.Print where
 import Prelude
 
 import Control.Monad.Error.Class (class MonadThrow, throwError)
--- import Data.Array.NonEmpty (any)
 import Data.Either (Either(..))
 import Data.List (List, all, any)
 import Data.String (trim)
@@ -20,51 +19,51 @@ spec :: Spec Unit
 spec = do
   describe "GraphQL.Templater.Ast.Print" do
     describe "printTemplateAsts" do
-      roundTrip "text only"
+      roundTripSimple "text only"
 
-      roundTrip " text with whitespace "
+      roundTripSimple " text with whitespace "
 
-      roundTrip "\n text with newlines \n"
+      roundTripSimple "\n text with newlines \n"
 
-      roundTrip " \n text with newlines and whitespace \n "
+      roundTripSimple " \n text with newlines and whitespace \n "
 
-      roundTrip "var {{variable}}"
+      roundTripSimple "var {{variable}}"
 
-      roundTrip "chained {{chained.variable}}"
+      roundTripSimple "chained {{chained.variable}}"
 
-      roundTrip "parents and roots {{chained.*parent.*root}}"
+      roundTripSimple "parents and roots {{chained.*parent.*root}}"
 
-      roundTrip "arg {{variable(arg1: 1)}}"
+      roundTripSimple "arg {{variable(arg1: 1)}}"
 
-      roundTrip "args {{variable(arg1: 1, arg2: 2)}}"
+      roundTripSimple "args {{variable(arg1: 1, arg2: 2)}}"
 
-      roundTrip "args on args {{chained(b: true).variable(arg1: 1, arg2: 2)}}"
+      roundTripSimple "args on args {{chained(b: true).variable(arg1: 1, arg2: 2)}}"
 
-      roundTripNamed [ hasEach ] "eaches" """{{#each array }}text{{/each}}"""
+      roundTrip [ hasEach ] "eaches" """{{#each array }}text{{/each}}"""
 
-      roundTripNamed [ hasEach ] "eaches on newlines"
+      roundTrip [ hasEach ] "eaches on newlines"
         """{{#each array }} 
       text{{/each}} """
 
-      roundTripNamed [ hasEach ] "eaches with variables"
+      roundTrip [ hasEach ] "eaches with variables"
         """{{#each array }}
       {{var.a}} {{/each}}"""
 
-      roundTripNamed [ hasWith ] "withs with variables with args"
+      roundTrip [ hasWith ] "withs with variables with args"
         """{{#with obj }}
       {{var.a(a: "b")}} {{/with}}"""
 
-      roundTripNamed [ hasEach, hasWith ] "a complex example"
+      roundTrip [ hasEach, hasWith ] "a complex example"
         """{{#each items}}
       {{#each inner-items}}{{var.a(a: "b")}}{{/each}} some text {{/each}}
       {{#with obj }} other text
       {{*parent.var.a(a: "b").a.x}} {{/with}}
       """
 
-roundTrip :: forall m g. Monad m => MonadThrow Error g => String -> SpecT g Unit m Unit
-roundTrip src = roundTripNamed [] (trim src) src
+roundTripSimple :: forall m g. Monad m => MonadThrow Error g => String -> SpecT g Unit m Unit
+roundTripSimple src = roundTrip [] (trim src) src
 
-roundTripNamed
+roundTrip
   :: forall m g
    . Monad m
   => MonadThrow Error g
@@ -72,7 +71,7 @@ roundTripNamed
   -> String
   -> String
   -> SpecT g Unit m Unit
-roundTripNamed astTests name src = it ("round trip - " <> name) do
+roundTrip astTests name src = it ("round trip - " <> name) do
   case parse src of
     Left err -> throwError $ error $ parseErrorMessage err
     Right parsed -> do
@@ -80,7 +79,14 @@ roundTripNamed astTests name src = it ("round trip - " <> name) do
         throwError $ error $ "Failed ast tests: \n\n" <> src <> "\n\n with ast: \n" <> show parsed <> "\n\n"
       let printed = printTemplateAsts parsed
       when (printed /= src) do
-        throwError $ error $ "Failed to round trip: \n\n" <> src <> "\n\n -> \n\n" <> printed <> "\n\n with ast: \n" <> show parsed <> "\n\n"
+        throwError $ error $
+          "Failed to round trip: \n\n"
+            <> src
+            <> "\n\n -> \n\n"
+            <> printed
+            <> "\n\n with ast: \n"
+            <> show parsed
+            <> "\n\n"
 
 hasEach :: List (Ast Positions) -> Boolean
 hasEach = any

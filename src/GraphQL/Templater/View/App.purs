@@ -35,7 +35,7 @@ import GraphQL.Templater.TypeCheck.Errors (TypeErrorWithPath(..))
 import GraphQL.Templater.TypeCheck.Errors.Display (displayPositionedError)
 import GraphQL.Templater.TypeCheck.Errors.GetPositions (getPositions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
-import GraphQL.Templater.View.Editor (Diagnostic, ViewUpdate, getViewUpdateContent, matchBefore)
+import GraphQL.Templater.View.Editor (Diagnostic, ViewUpdate, getViewContent, getViewUpdateContent, matchBefore)
 import GraphQL.Templater.View.Editor as Editor
 import Halogen (ClassName(..), liftEffect)
 import Halogen as H
@@ -64,7 +64,6 @@ type State =
   , schemaTypeTree :: Maybe GqlTypeTree
   , fullQueryCache :: Map.Map String Json
   , mostRecentEval :: Maybe Instant
-  -- , editorView :: Maybe Editor.EditorView
   }
 
 component :: forall output m q input. MonadAff m => H.Component q input output m
@@ -114,7 +113,6 @@ component =
           , lint: state.errorDiagnostics
           , autocompletion: Just \ctx -> do
               matchBrackets <- matchBefore (unsafeRegex """\{\{\w*""" noFlags) ctx
-              traceM { matchBrackets }
               for matchBrackets \{ text, from } -> do
                 pure
                   { filter: false
@@ -124,21 +122,23 @@ component =
                         , detail: Just "loop over a list"
                         , info: Nothing
                         , type: Just "keyword"
-                        , apply: Nothing
+                        , apply: Just \{ view, from, to } -> do
+                            content <- getViewContent view
+                            traceM { content }
+                            -- case parse content of
+                            --   Left _ -> pure unit
+                            --   Right asts -> do
+                            --     let
+                            --       newContent = 
+                            --         String.take from content
+                            --         <> "{{each " <> text <> " as |" <> text <> "|}}"
+                            --         <> String.drop to content
+                            --     _ <- Editor.setContent view newContent
+                            --     pure unit
+                            pure unit
                         }
                       ]
                   }
-          --  case matchMb of 
-          --    Nothing -> pure Nothing 
-          --    Just match -> ?D
-          --  for matchMb \match -> ?d
-          --  case  match of
-          --    pattern -> expression
-          --  pure      
-          --     { filter: true
-          --     , from: 
-          --     , options :: Array Completion
-          --     }
           }
           case _ of
             Editor.DocChanged viewUpdate -> SetTemplate viewUpdate
