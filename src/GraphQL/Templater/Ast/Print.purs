@@ -122,8 +122,8 @@ printMapArgs = case _ of
     in
       combine $
         pure (atEnd start "(")
-          <> pure (atEnd argsEnd ")")
           <> mapWithIndex printMapArg list
+          <> pure (atEnd argsEnd ")")
 
 printMapArg :: forall k. PrintKey k => Int -> Arg Positions -> PrintResult k
 printMapArg idx (Arg { name, value: Value value valuePos } { start }) =

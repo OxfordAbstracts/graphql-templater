@@ -2,23 +2,24 @@ module Test.GraphQL.Templater.Ast.Print where
 
 import Prelude
 
-import Control.Monad.Error.Class (class MonadThrow, throwError)
+import Control.Monad.Error.Class (class MonadThrow)
 import Data.Either (Either(..))
 import Data.List (List, all, any)
 import Data.String (trim)
-import Effect.Exception (Error, error)
+import Effect.Exception (Error)
 import GraphQL.Templater.Ast (Ast)
 import GraphQL.Templater.Ast as Ast
-import GraphQL.Templater.Ast.Print (printPositioned)
+import GraphQL.Templater.Ast.Print (printPositioned, printUnpositioned)
 import GraphQL.Templater.Parser (parse)
 import GraphQL.Templater.Positions (Positions)
 import Parsing (parseErrorMessage)
 import Test.Spec (Spec, SpecT, describe, it)
+import Test.Spec.Assertions (fail)
 
 spec :: Spec Unit
 spec = do
   describe "GraphQL.Templater.Ast.Print" do
-    describe "printPositioned" do
+    describe "printPositioned & printUnpositioned" do
       roundTripSimple "text only"
 
       roundTripSimple " text with whitespace "
@@ -71,22 +72,41 @@ roundTrip
   -> String
   -> String
   -> SpecT g Unit m Unit
-roundTrip astTests name src = it ("round trip - " <> name) do
-  case parse src of
-    Left err -> throwError $ error $ parseErrorMessage err
-    Right parsed -> do
-      when (not all (\t -> t parsed) astTests) do
-        throwError $ error $ "Failed ast tests: \n\n" <> src <> "\n\n with ast: \n" <> show parsed <> "\n\n"
-      let printed = printPositioned parsed
-      when (printed /= src) do
-        throwError $ error $
-          "Failed to round trip: \n\n"
-            <> src
-            <> "\n\n -> \n\n"
-            <> printed
-            <> "\n\n with ast: \n"
-            <> show parsed
-            <> "\n\n"
+roundTrip astTests name src = do
+  it ("printPositioned round trip - " <> name) do
+    case parse src of
+      Left err -> fail $ parseErrorMessage err
+      Right parsed -> do
+        when (not all (\t -> t parsed) astTests) do
+          fail $ "Failed ast tests: \n\n" <> src <> "\n\n with ast: \n" <> show parsed <> "\n\n"
+        let printed = printPositioned parsed
+        when (printed /= src) do
+          fail $
+            "Failed to round trip: \n\n"
+              <> src
+              <> "\n\n -> \n\n"
+              <> printed
+              <> "\n\n with ast: \n"
+              <> show parsed
+              <> "\n\n"
+
+  it ("printUnpositioned round trip - " <> name) do
+    case parse src of
+      Left err -> fail $ parseErrorMessage err
+      Right parsed -> do
+        let printed = printUnpositioned parsed
+        case parse printed of
+          Left err -> fail $ parseErrorMessage err
+          Right reparsed -> do
+            when (map (map (const unit)) parsed /= map (map (const unit)) reparsed) do
+              fail $
+                "Failed to round trip: \n\n"
+                  <> src
+                  <> "\n\n -> \n\n"
+                  <> printed
+                  <> "\n\n with ast: \n"
+                  <> show parsed
+                  <> "\n\n"
 
 hasEach :: List (Ast Positions) -> Boolean
 hasEach = any
