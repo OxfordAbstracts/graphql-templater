@@ -64,21 +64,21 @@ printMapTemplateAst = case _ of
       , printMapVarPath varPath
       , atEnd end "}}"
       ]
-  Each varPath@(VarPath _ varPathPos) inner { start, end } ->
+  Each varPath@(VarPath _ varPathPos) inner open close ->
     combine
-      [ atStart start "{{#each "
+      [ atStart open.start "{{#each "
       , printMapVarPath varPath
       , atStart varPathPos.end "}}"
       , printMapTemplateAsts inner
-      , atEnd end "{{/each}}"
+      , atStart close.start "{{/each}}"
       ]
-  With varPath@(VarPath _ varPathPos) inner { start, end } ->
+  With varPath@(VarPath _ varPathPos) inner open close ->
     combine
-      [ atStart start "{{#with "
+      [ atStart open.start "{{#with "
       , printMapVarPath varPath
       , atStart varPathPos.end "}}"
       , printMapTemplateAsts inner
-      , atEnd end "{{/with}}"
+      , atStart close.start "{{/with}}"
       ]
 
   Text text { start } ->

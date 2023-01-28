@@ -11,6 +11,7 @@ import Data.List (List(..), reverse, (:))
 import Data.Maybe (Maybe(..))
 import Data.String as String
 import Data.String.CodeUnits (toCharArray)
+import Debug (spy)
 import GraphQL.Templater.Ast (Ast(..))
 import GraphQL.Templater.Ast.Print (printUnpositioned)
 import GraphQL.Templater.Positions (Positions)
@@ -34,7 +35,7 @@ modifyTextAt
   -> Int
   -> List (Ast Positions)
   -> Maybe (List (Ast Positions))
-modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reverse res)
+modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions (spy "change" pc) (reverse res)
   where
   go
     :: { posChange :: Maybe PosChange
@@ -55,7 +56,6 @@ modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reve
             let
               inserted = fn text pos
               newText = printUnpositioned inserted
-              newChars = toCharArray newText
             in
               { res: inserted <> res
               , posChange:
@@ -65,22 +65,23 @@ modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reve
                         { start: Position start
                         , end: Position
                             { index: end.index + (String.length newText - String.length text)
-                            , line: start.line + Array.length (Array.filter (eq '\n') newChars)
-                            , column: (Array.length $ Array.takeWhile (not eq '\n') (Array.reverse newChars)) + 1
+                            , line: start.line + getNewlines newText
+                            , column: end.column + (getColumn newText - getColumn text)
+                            --  (Array.length $ Array.takeWhile (not eq '\n') (Array.reverse newChars)) + 1
                             }
                         }
                     }
               }
         | true -> doNothing
-      Each v inner p ->
-        { res: Each v (reverse innerRes.res) p : res
+      Each v inner open close ->
+        { res: Each v (reverse innerRes.res) open close : res
         , posChange: innerRes.posChange
         }
         where
         innerRes = updateAsts { res, posChange } inner
 
-      With v inner p ->
-        { res: With v (reverse innerRes.res) p : res
+      With v inner open close ->
+        { res: With v (reverse innerRes.res) open close : res
         , posChange: innerRes.posChange
         }
         where
@@ -109,6 +110,13 @@ modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reve
     }
     inputAsts
 
+
+getNewlines :: String -> Int
+getNewlines = Array.length <<< Array.filter (eq '\n') <<< toCharArray
+
+getColumn :: String -> Int
+getColumn = Array.length <<< Array.takeWhile (not eq '\n') <<< Array.reverse <<< toCharArray
+
 type PosChange = { old :: Positions, new :: Positions }
 
 updateAstPositions :: PosChange -> List (Ast Positions) -> List (Ast Positions)
@@ -124,7 +132,7 @@ updateAstPositions { old, new } asts = asts <#> map
 
   updateStartColumn = case _ of
     positions@{ start: Position start }
-      | start.line == newEnd.line && start.index > newEnd.index -> positions
+      | start.line == newEnd.line && start.index >= oldEnd.index -> positions
           { start = Position start
               { column = start.column + (newEnd.column - oldEnd.column)
               }
@@ -133,7 +141,7 @@ updateAstPositions { old, new } asts = asts <#> map
 
   updateEndColumn = case _ of
     positions@{ end: Position end }
-      | end.line == newEnd.line && end.index > newEnd.index -> positions
+      | end.line == newEnd.line && end.index >= oldEnd.index -> positions
           { end = Position end
               { column = end.column + (newEnd.column - oldEnd.column)
               }

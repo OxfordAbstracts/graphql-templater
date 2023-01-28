@@ -51,7 +51,7 @@ spec = do
                   : Text " end " unit
                   : Nil
               )
-              unit
+              unit unit
               : Nil
           )
           testJson `shouldEqual` " start 1 a end  start 2 b end "
@@ -64,7 +64,7 @@ spec = do
                   : Text " end " unit
                   : Nil
               )
-              unit
+              unit unit
               : Nil
           )
           testJson `shouldEqual` " start a end "
@@ -75,7 +75,7 @@ spec = do
               ( mkVarNested ("obj" `nelCons` pure "a")
                   : Nil
               )
-              unit
+              unit unit
               : Nil
           )
           testJson `shouldEqual` "aa"
@@ -94,10 +94,10 @@ spec = do
                           : Text " end " unit
                           : Nil
                       )
-                      unit
+                      unit unit
                   : Nil
               )
-              unit
+              unit unit
               : Nil
           )
           testJson `shouldEqual` " start 1 a end  start a a end  start a b end  start 2 b end  start b a end  start b b end "
@@ -118,7 +118,7 @@ spec = do
                   unit
                   : Nil
               )
-              unit
+              unit unit
               : Nil
           )
           testJson `shouldEqual` "truetrue"
@@ -140,9 +140,9 @@ spec = do
                       unit
                       : Nil
                   )
-                  unit : Nil
+                  unit unit : Nil
               )
-              unit
+              unit unit
               : Nil
           )
           testJson `shouldEqual` "1122"
@@ -164,9 +164,9 @@ spec = do
                       unit
                       : Nil
                   )
-                  unit : Nil
+                  unit unit : Nil
               )
-              unit
+              unit unit
               : Nil
           )
           testJson `shouldEqual` "1111"

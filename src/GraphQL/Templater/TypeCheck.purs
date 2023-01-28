@@ -49,7 +49,7 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
                         <> st.errors
                   }
             checkAsts tail
-          Each (VarPath v _) inner _p -> do
+          Each (VarPath v _) inner _ _-> do
             st <- get
 
             let
@@ -69,7 +69,7 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
             modify_ _ { path = st.path }
 
             checkAsts tail
-          With (VarPath v _) inner _p -> do
+          With (VarPath v _) inner _ _ -> do
             st <- get
 
             let

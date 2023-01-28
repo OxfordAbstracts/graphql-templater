@@ -26,14 +26,14 @@ parse
 parse str = runParser str (manyTill astParser eof)
 
 astParser :: Parser String AstPos
-astParser = withPositions $ oneOf
+astParser = oneOf
   [ eachP
   , withP
   , varP
   , textP
   ]
   where
-  varP = do
+  varP = withPositions do
     _ <- string "{{"
     skipSpaces
     varPath <- varPathParser
@@ -42,24 +42,42 @@ astParser = withPositions $ oneOf
     pure $ Var varPath
 
   eachP = do
+    openStart <- position
     _ <- try $ string "{{#each"
     skipSpaces
     varPath <- varPathParser
     skipSpaces
     _ <- string "}}"
-    asts <- manyTill astParser (string "{{/each}}")
+    openEnd <- position
+    asts <- manyTill astParser (lookAhead $ string closeTag)
+    closeStart <- position
+    _ <- string closeTag
+    closeEnd <- position
     pure $ Each varPath asts
+      { start: openStart, end: openEnd }
+      { start: closeStart, end: closeEnd }
+    where
+    closeTag = "{{/each}}"
 
   withP = do
+    openStart <- position
     _ <- try $ string "{{#with"
     skipSpaces
     varPath <- varPathParser
     skipSpaces
     _ <- string "}}"
-    asts <- manyTill astParser (string "{{/with}}")
+    openEnd <- position
+    asts <- manyTill astParser (lookAhead $ string "{{/with}}")
+    closeStart <- position
+    _ <- string closeTag
+    closeEnd <- position
     pure $ With varPath asts
+      { start: openStart, end: openEnd }
+      { start: closeStart, end: closeEnd }
+    where
+    closeTag ="{{/with}}"
 
-  textP = do
+  textP = withPositions do
     chars <- try $ many1Till anyChar (lookAhead $ void (string "{{") <|> eof)
     pure $ Text $ toString chars
 

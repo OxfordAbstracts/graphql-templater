@@ -71,7 +71,7 @@ spec = do
               ( Text "text" unit
                   : Nil
               )
-              unit
+              unit unit
               : Nil
           )
       it "should parse nested eaches" do
@@ -81,10 +81,10 @@ spec = do
                   ( Text "text" unit
                       : Nil
                   )
-                  unit
+                  unit unit
                   : Nil
               )
-              unit
+              unit unit
               : Nil
           )
   where

@@ -26,13 +26,13 @@ interpolate = go Nil
     mergeAst = case _ of
       Ast.Text s _ -> s
       Ast.Var (VarPath v _) _ -> lookupJson v # displayJson path
-      Ast.Each (VarPath v _) asts' _ ->
+      Ast.Each (VarPath v _) asts' _ _ ->
         let
           arr = lookupJson v # caseJsonArray [] identity
         in
           fold $ arr # mapWithIndex \idx _json' ->
             go (addJsonIdx idx $ varPathToPosition v <> path) asts' json
-      Ast.With (VarPath v _) asts' _ ->
+      Ast.With (VarPath v _) asts' _ _ ->
         go (varPathToPosition v <> path) asts' json
 
       where

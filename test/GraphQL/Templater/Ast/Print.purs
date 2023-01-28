@@ -105,17 +105,17 @@ roundTrip astTests name src = do
                   <> "\n\n -> \n\n"
                   <> printed
                   <> "\n\n with ast: \n"
-                  <> show parsed
+                  <> show reparsed
                   <> "\n\n"
 
 hasEach :: List (Ast Positions) -> Boolean
 hasEach = any
   case _ of
-    Ast.Each _ _ _ -> true
+    Ast.Each _ _ _ _ -> true
     _ -> false
 
 hasWith :: List (Ast Positions) -> Boolean
 hasWith = any
   case _ of
-    Ast.With _ _ _ -> true
+    Ast.With _ _ _ _ -> true
     _ -> false
