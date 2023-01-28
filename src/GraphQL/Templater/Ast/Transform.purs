@@ -19,7 +19,7 @@ insertTextAt
   :: String
   -> Int
   -> List (Ast Positions)
-  -> List (Ast Positions)
+  -> Maybe (List (Ast Positions))
 insertTextAt text idx = modifyTextAt go idx
   where
   go existing { start: Position start } =
@@ -28,8 +28,12 @@ insertTextAt text idx = modifyTextAt go idx
     in
       before <> text <> after
 
-modifyTextAt :: (String -> Positions -> String) -> Int -> List (Ast Positions) -> List (Ast Positions)
-modifyTextAt fn idx inputAsts = posChange # maybe inputAsts \pc -> updateAstPositions pc (reverse res)
+modifyTextAt
+  :: (String -> Positions -> String)
+  -> Int
+  -> List (Ast Positions)
+  -> Maybe (List (Ast Positions))
+modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reverse res)
   where
   go
     :: { posChange :: Maybe PosChange

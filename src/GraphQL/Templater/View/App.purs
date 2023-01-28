@@ -27,6 +27,7 @@ import Effect.Exception (message)
 import Foreign.Object as Object
 import GraphQL.Templater.Ast (Ast(..), AstPos)
 import GraphQL.Templater.Ast.Print (printTemplateAsts)
+import GraphQL.Templater.Ast.Transform (insertTextAt)
 import GraphQL.Templater.Eval (EvalResult(..), eval)
 import GraphQL.Templater.Eval.MakeQuery (toGqlString)
 import GraphQL.Templater.GetSchema (getGqlDoc)
@@ -123,21 +124,20 @@ component =
                         , detail: Just "loop over a list"
                         , info: Nothing
                         , type: Just "keyword"
-                        , apply: Just \{ view, from, to } -> do
+                        , apply: Just \applyInput@{ view } -> do
                             content <- getViewContent view
                             case spy "parsed" $ parse content of
                               Left _ -> pure unit
                               Right asts' ->
-                                setContent
-                                  ( printTemplateAsts $
-                                      asts' <> pure
-                                        ( Text " new text "
-                                            { start: initialPos
-                                            , end: initialPos
-                                            }
-                                        )
-                                  )
-                                  view
+                                case insertTextAt "each" applyInput.from asts' of 
+                                  Just asts'' -> do
+                                    setContent (printTemplateAsts asts'') view
+                                  _ ->  pure unit
+                                -- setContent
+                                --   ( printTemplateAsts $
+                                --       insertTextAt "each" applyInput.from asts'
+                                --   )
+                                --   view
                             pure unit
                         }
                       ]
