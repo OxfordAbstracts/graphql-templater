@@ -110,7 +110,6 @@ modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions (spy "ch
     }
     inputAsts
 
-
 getNewlines :: String -> Int
 getNewlines = Array.length <<< Array.filter (eq '\n') <<< toCharArray
 

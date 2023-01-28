@@ -75,7 +75,7 @@ astParser = oneOf
       { start: openStart, end: openEnd }
       { start: closeStart, end: closeEnd }
     where
-    closeTag ="{{/with}}"
+    closeTag = "{{/with}}"
 
   textP = withPositions do
     chars <- try $ many1Till anyChar (lookAhead $ void (string "{{") <|> eof)

@@ -40,7 +40,8 @@ spec = do
               )
               ( Text "text" unit : Nil
               )
-              unit  unit : Nil
+              unit
+              unit : Nil
           ) `shouldEqualWoWs` Just "query {  __typename test {  __typename } } "
 
       it "should return a graphql query for a simple variable ast" do
