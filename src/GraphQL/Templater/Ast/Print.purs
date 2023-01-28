@@ -1,29 +1,37 @@
 module GraphQL.Templater.Ast.Print
-  ( printTemplateAsts
-  ) where
+  ( printPositioned
+  , printUnpositioned
+  )
+  where
 
 import Prelude
 
+import Control.Monad.State (State, evalState, modify)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.GraphQL.AST.Print (printAst)
-import Data.List (List(..), foldl, last, (:))
+import Data.List (List(..), fold, foldl, last, (:))
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.String as String
 import Data.String.Utils (unsafeRepeat)
-import Data.Tuple (Tuple(..))
+import Data.Traversable (class Foldable, class Traversable, sequence)
+import Data.Tuple (Tuple(..), snd)
 import GraphQL.Templater.Ast (Arg(..), ArgName(..), Ast(..), Value(..), VarPartName(..), VarPath(..), VarPathPart(..))
 import GraphQL.Templater.Positions (Positions)
 import Parsing (Position(..))
 
-printTemplateAsts :: List (Ast Positions) -> String
-printTemplateAsts = displayPrintResult <<< printMapTemplateAsts
+-- | Print an AST, keeping the original positions of the tokens.
+-- | The asts must have the correct positions set.
+printPositioned :: List (Ast Positions) -> String
+printPositioned = displayPositionedPrintResult <<< printMapTemplateAsts
 
-displayPrintResult :: PrintResult -> String
-displayPrintResult =
-  (Map.toUnfoldable :: _ -> List _)
-    >>> foldl insert ""
+
+displayPositionedPrintResult :: PrintResult Position -> String
+displayPositionedPrintResult result =
+  evalState result 0
+    # (Map.toUnfoldable :: _ -> List _)
+    # foldl insert ""
   where
   insert :: String -> Tuple Position String -> String
   insert res (Tuple (Position { index }) str) =
@@ -34,21 +42,34 @@ displayPrintResult =
         { before, after } ->
           before <> str <> after
 
-type PrintResult = Map Position String
+-- | Print an AST, discarding the original positions of the tokens.
+printUnpositioned :: List (Ast Positions) -> String
+printUnpositioned = displayPrintResult <<< printMapTemplateAsts
 
-printMapTemplateAsts :: List (Ast Positions) -> PrintResult
-printMapTemplateAsts asts = Map.unions $ map printMapTemplateAst asts
 
-printMapTemplateAst :: Ast Positions -> PrintResult
+displayPrintResult :: PrintResult Int -> String
+displayPrintResult result =
+  evalState result 0
+    # (Map.toUnfoldable :: _ -> List _)
+    <#> snd
+    # fold
+
+
+type PrintResult k = State Int (Map k String)
+
+printMapTemplateAsts :: forall k. PrintKey k => List (Ast Positions) -> PrintResult k
+printMapTemplateAsts asts = combine $ map printMapTemplateAst asts
+
+printMapTemplateAst :: forall k. PrintKey k => Ast Positions -> PrintResult k
 printMapTemplateAst = case _ of
   Var varPath { start, end } ->
-    Map.unions
+    combine
       [ atStart start "{{"
       , printMapVarPath varPath
       , atEnd end "}}"
       ]
   Each varPath@(VarPath _ varPathPos) inner { start, end } ->
-    Map.unions
+    combine
       [ atStart start "{{#each "
       , printMapVarPath varPath
       , atStart varPathPos.end "}}"
@@ -56,7 +77,7 @@ printMapTemplateAst = case _ of
       , atEnd end "{{/each}}"
       ]
   With varPath@(VarPath _ varPathPos) inner { start, end } ->
-    Map.unions
+    combine
       [ atStart start "{{#with "
       , printMapVarPath varPath
       , atStart varPathPos.end "}}"
@@ -67,12 +88,12 @@ printMapTemplateAst = case _ of
   Text text { start } ->
     atStart start text
 
-printMapVarPath :: VarPath Positions -> PrintResult
-printMapVarPath (VarPath path _) = Map.unions $ mapWithIndex printMapVarPathPart path
+printMapVarPath :: forall k. PrintKey k => VarPath Positions -> PrintResult k
+printMapVarPath (VarPath path _) = combine $ mapWithIndex printMapVarPathPart path
 
-printMapVarPathPart :: Int -> VarPathPart Positions -> PrintResult
+printMapVarPathPart :: forall k. PrintKey k => Int -> VarPathPart Positions -> PrintResult k
 printMapVarPathPart idx (VarPathPart { name, args } { start }) =
-  Map.unions
+  combine
     [ dot
     , printMapVarPartName name
     , printMapArgs args
@@ -80,11 +101,11 @@ printMapVarPathPart idx (VarPathPart { name, args } { start }) =
   where
   dot =
     if idx == 0 then
-      Map.empty
+      empty
     else
-      Map.singleton (adjustPosition (-1) start) "."
+      atEnd start "."
 
-printMapVarPartName :: VarPartName Positions -> PrintResult
+printMapVarPartName :: forall k. PrintKey k => VarPartName Positions -> PrintResult k
 printMapVarPartName = case _ of
   VarPartNameGqlName gqlName { start } ->
     atStart start gqlName
@@ -93,24 +114,24 @@ printMapVarPartName = case _ of
   VarPartNameRoot { start } ->
     atStart start "*root"
 
-printMapArgs :: Maybe (List (Arg Positions)) -> PrintResult
+printMapArgs :: forall k. PrintKey k => Maybe (List (Arg Positions)) -> PrintResult k
 printMapArgs = case _ of
-  Nothing -> Map.empty
-  Just Nil -> Map.empty
+  Nothing -> empty
+  Just Nil -> empty
   Just list@((Arg _ { start, end }) : _) ->
     let
       argsEnd = adjustPosition 1 case last list of
         Just (Arg _ pos) -> pos.end
         _ -> end
     in
-      Map.unions $
+      combine $
         pure (atEnd start "(")
           <> pure (atEnd argsEnd ")")
           <> mapWithIndex printMapArg list
 
-printMapArg :: Int -> Arg Positions -> PrintResult
+printMapArg :: forall k. PrintKey k => Int -> Arg Positions -> PrintResult k
 printMapArg idx (Arg { name, value: Value value valuePos } { start }) =
-  Map.unions
+  combine
     [ comma
     , printMapArgName name
     , atStart valuePos.start (printAst value)
@@ -118,21 +139,31 @@ printMapArg idx (Arg { name, value: Value value valuePos } { start }) =
   where
   comma =
     if idx == 0 then
-      Map.empty
+      empty
     else
       atEnd start ", "
 
-printMapArgName :: ArgName Positions -> PrintResult
-printMapArgName (ArgName name { start, end }) = Map.unions
+printMapArgName :: forall k. PrintKey k => ArgName Positions -> PrintResult k
+printMapArgName (ArgName name { start, end }) = combine
   [ atStart start name
   , atStart (adjustPosition 0 end) ": "
   ]
 
-atStart :: Position -> String -> PrintResult
-atStart = Map.singleton
+combine :: forall f k. Ord k => Foldable f => Traversable f => f (PrintResult k) -> (PrintResult k)
+combine results = do
+  x <- sequence results
+  pure $ Map.unions x
 
-atEnd :: Position -> String -> PrintResult
-atEnd pos str = Map.singleton (adjustPosition (-(String.length str)) pos) str
+empty :: forall k. PrintResult k
+empty = pure Map.empty
+
+atStart :: forall k. PrintKey k => Position -> String -> PrintResult k
+atStart pos str = do
+  k <- getKey pos
+  pure $ Map.singleton k str
+
+atEnd :: forall k. PrintKey k => Position -> String -> PrintResult k
+atEnd pos str = atStart (adjustPosition (-(String.length str)) pos) str
 
 adjustPosition :: Int -> Position -> Position
 adjustPosition n (Position { index, column, line }) =
@@ -141,3 +172,12 @@ adjustPosition n (Position { index, column, line }) =
     , column: column + n
     , line
     }
+
+class Ord k <= PrintKey k where
+  getKey :: Position -> State Int k
+
+instance PrintKey Position where
+  getKey pos = pure pos
+
+instance PrintKey Int where
+  getKey _ = modify ((+) 1)

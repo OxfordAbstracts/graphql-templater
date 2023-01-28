@@ -8,10 +8,11 @@ import Prelude
 import Data.Array as Array
 import Data.Foldable (foldl)
 import Data.List (List(..), reverse, (:))
-import Data.Maybe (Maybe(..), maybe)
+import Data.Maybe (Maybe(..))
 import Data.String as String
 import Data.String.CodeUnits (toCharArray)
 import GraphQL.Templater.Ast (Ast(..))
+import GraphQL.Templater.Ast.Print (printUnpositioned)
 import GraphQL.Templater.Positions (Positions)
 import Parsing (Position(..))
 
@@ -22,14 +23,14 @@ insertTextAt
   -> Maybe (List (Ast Positions))
 insertTextAt text idx = modifyTextAt go idx
   where
-  go existing { start: Position start } =
+  go existing positions@{ start: Position start } =
     let
       { before, after } = String.splitAt (idx - start.index) existing
     in
-      before <> text <> after
+      Text (before <> text <> after) positions : Nil
 
 modifyTextAt
-  :: (String -> Positions -> String)
+  :: (String -> Positions -> (List (Ast Positions)))
   -> Int
   -> List (Ast Positions)
   -> Maybe (List (Ast Positions))
@@ -52,25 +53,38 @@ modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reve
           }
         | idx >= start.index && idx <= end.index ->
             let
-              newText = fn text pos
+              inserted = fn text pos
+              newText = printUnpositioned inserted
               newChars = toCharArray newText
             in
-              { res: Text newText pos : res
-              , posChange: Just
-                  { old: pos
-                  , new:
-                      { start: Position start
-                      , end: Position
-                          { index: end.index + (String.length newText - String.length text)
-                          , line: start.line + Array.length (Array.filter (eq '\n') newChars)
-                          , column: (Array.length $ Array.takeWhile (not eq '\n') (Array.reverse newChars)) + 1
-                          }
-                      }
-                  }
+              { res: inserted <> res
+              , posChange:
+                  Just
+                    { old: pos
+                    , new:
+                        { start: Position start
+                        , end: Position
+                            { index: end.index + (String.length newText - String.length text)
+                            , line: start.line + Array.length (Array.filter (eq '\n') newChars)
+                            , column: (Array.length $ Array.takeWhile (not eq '\n') (Array.reverse newChars)) + 1
+                            }
+                        }
+                    }
               }
         | true -> doNothing
-      Each _ inner _ -> updateAsts { res, posChange } inner
-      With _ inner _ -> updateAsts { res, posChange } inner
+      Each v inner p ->
+        { res: Each v (reverse innerRes.res) p : res
+        , posChange: innerRes.posChange
+        }
+        where
+        innerRes = updateAsts { res, posChange } inner
+
+      With v inner p ->
+        { res: With v (reverse innerRes.res) p : res
+        , posChange: innerRes.posChange
+        }
+        where
+        innerRes = updateAsts { res, posChange } inner
       Var _ _ -> doNothing
     _ -> doNothing
     where
@@ -129,7 +143,7 @@ updateAstPositions { old, new } asts = asts <#> map
   updateIndexAndLine = case _ of
     positions@{ start: Position start, end: Position end }
       | old == positions -> new
-      | start.index > oldStart.index ->
+      | start.index >= oldStart.index ->
           { start: Position start
               { index = start.index + (newEnd.index - oldEnd.index)
               , line = start.line + (newEnd.line - oldEnd.line)

@@ -7,7 +7,7 @@ import Data.Maybe (Maybe(..))
 import GraphQL.Templater.Ast (Ast(..))
 import GraphQL.Templater.Ast.Transform (insertTextAt)
 import Parsing (Position(..))
-import Test.Spec (Spec, describe, it)
+import Test.Spec (Spec, describe, it, itOnly)
 import Test.Spec.Assertions (shouldEqual)
 
 spec :: Spec Unit
@@ -28,6 +28,7 @@ spec = do
                 }
             )
       it "should insert in the 2nd text" do
+
         insertTextAt "a" 3
           ( Text "12"
               { start: Position { line: 1, column: 1, index: 0 }
@@ -49,6 +50,51 @@ spec = do
                   :
                     Text "3a4"
                       { start: Position { line: 1, column: 3, index: 2 }
+                      , end: Position { line: 1, column: 6, index: 5 }
+                      }
+                  : Nil
+            )
+        let
+          _ =
+            ( Just
+                ( ( Text "12"
+                      { start: (Position { column: 1, index: 0, line: 1 })
+                      , end: (Position { column: 3, index: 2, line: 1 })
+                      }
+                  )
+                    :
+                      ( Text "3a4"
+                          { start: (Position { column: 3, index: 2, line: 1 })
+                          , end: (Position { column: 6, index: 7, line: 1 })
+                          }
+                      )
+                    : Nil
+                )
+            )
+        pure unit
+
+      it "should insert in the 1st text" do
+        insertTextAt "a" 2
+          ( Text "12"
+              { start: Position { line: 1, column: 1, index: 0 }
+              , end: Position { line: 1, column: 3, index: 2 }
+              }
+              :
+                Text "34"
+                  { start: Position { line: 1, column: 3, index: 2 }
+                  , end: Position { line: 1, column: 5, index: 4 }
+                  }
+              : Nil
+          )
+          `shouldEqual`
+            ( Just $
+                Text "12a"
+                  { start: Position { line: 1, column: 1, index: 0 }
+                  , end: Position { line: 1, column: 4, index: 3 }
+                  }
+                  :
+                    Text "34"
+                      { start: Position { line: 1, column: 4, index: 3 }
                       , end: Position { line: 1, column: 6, index: 5 }
                       }
                   : Nil

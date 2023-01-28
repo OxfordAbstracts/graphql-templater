@@ -44,9 +44,10 @@ export const getViewContent = (view) => () => {
 };
 
 export const setContent = (content) => (view) => () => {
-  view.state.update({
+  const transaction = view.state.update({
     changes: { from: 0, to: view.state.doc.length, insert: content },
   });
+  view.dispatch(transaction);
 };
 
 export const getViewUpdateContent = (viewUpdate) => () => {

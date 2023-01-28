@@ -9,7 +9,7 @@ import Data.String (trim)
 import Effect.Exception (Error, error)
 import GraphQL.Templater.Ast (Ast)
 import GraphQL.Templater.Ast as Ast
-import GraphQL.Templater.Ast.Print (printTemplateAsts)
+import GraphQL.Templater.Ast.Print (printPositioned)
 import GraphQL.Templater.Parser (parse)
 import GraphQL.Templater.Positions (Positions)
 import Parsing (parseErrorMessage)
@@ -18,7 +18,7 @@ import Test.Spec (Spec, SpecT, describe, it)
 spec :: Spec Unit
 spec = do
   describe "GraphQL.Templater.Ast.Print" do
-    describe "printTemplateAsts" do
+    describe "printPositioned" do
       roundTripSimple "text only"
 
       roundTripSimple " text with whitespace "
@@ -77,7 +77,7 @@ roundTrip astTests name src = it ("round trip - " <> name) do
     Right parsed -> do
       when (not all (\t -> t parsed) astTests) do
         throwError $ error $ "Failed ast tests: \n\n" <> src <> "\n\n with ast: \n" <> show parsed <> "\n\n"
-      let printed = printTemplateAsts parsed
+      let printed = printPositioned parsed
       when (printed /= src) do
         throwError $ error $
           "Failed to round trip: \n\n"

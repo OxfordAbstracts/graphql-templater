@@ -23,10 +23,11 @@ import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
 import Debug (spy, traceM)
 import Effect.Aff.Class (class MonadAff)
+import Effect.Class.Console as Console
 import Effect.Exception (message)
 import Foreign.Object as Object
 import GraphQL.Templater.Ast (Ast(..), AstPos)
-import GraphQL.Templater.Ast.Print (printTemplateAsts)
+import GraphQL.Templater.Ast.Print (printPositioned)
 import GraphQL.Templater.Ast.Transform (insertTextAt)
 import GraphQL.Templater.Eval (EvalResult(..), eval)
 import GraphQL.Templater.Eval.MakeQuery (toGqlString)
@@ -126,18 +127,13 @@ component =
                         , type: Just "keyword"
                         , apply: Just \applyInput@{ view } -> do
                             content <- getViewContent view
-                            case spy "parsed" $ parse content of
+                            case parse content of
                               Left _ -> pure unit
                               Right asts' ->
-                                case insertTextAt "each" applyInput.from asts' of 
+                                case insertTextAt "each" applyInput.from asts' of
                                   Just asts'' -> do
-                                    setContent (printTemplateAsts asts'') view
-                                  _ ->  pure unit
-                                -- setContent
-                                --   ( printTemplateAsts $
-                                --       insertTextAt "each" applyInput.from asts'
-                                --   )
-                                --   view
+                                    setContent (printPositioned asts'') view
+                                  _ -> Console.error $ "Failed to insert each at index " <> show applyInput.from
                             pure unit
                         }
                       ]
