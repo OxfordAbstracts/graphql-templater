@@ -11,7 +11,7 @@ import Data.DateTime.Instant (Instant)
 import Data.Either (Either(..), either, hush)
 import Data.Foldable (intercalate)
 import Data.GraphQL.AST.Print (printAst)
-import Data.List (List(..), (:))
+import Data.List (List(..))
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), split)
@@ -21,12 +21,11 @@ import Data.String.Regex.Unsafe (unsafeRegex)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
-import Debug (spy, traceM)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class.Console as Console
 import Effect.Exception (message)
 import Foreign.Object as Object
-import GraphQL.Templater.Ast (Ast(..), AstPos)
+import GraphQL.Templater.Ast (AstPos)
 import GraphQL.Templater.Ast.Print (printPositioned)
 import GraphQL.Templater.Ast.Transform (insertTextAt)
 import GraphQL.Templater.Eval (EvalResult(..), eval)
@@ -47,7 +46,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (class_)
 import Halogen.HTML.Properties as HP
-import Parsing (ParseError(..), Position(..), initialPos)
+import Parsing (ParseError(..), Position(..))
 import Type.Proxy (Proxy(..))
 
 data Action
@@ -116,7 +115,7 @@ component =
           , lint: state.errorDiagnostics
           , autocompletion: Just \ctx -> do
               matchBrackets <- matchBefore (unsafeRegex """\{\{\w*""" noFlags) ctx
-              for matchBrackets \{ text, from } -> do
+              for matchBrackets \{ from } -> do
                 pure
                   { filter: false
                   , from

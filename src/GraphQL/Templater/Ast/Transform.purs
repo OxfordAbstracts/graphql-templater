@@ -11,7 +11,6 @@ import Data.List (List(..), reverse, (:))
 import Data.Maybe (Maybe(..))
 import Data.String as String
 import Data.String.CodeUnits (toCharArray)
-import Debug (spy)
 import GraphQL.Templater.Ast (Ast(..))
 import GraphQL.Templater.Ast.Print (printUnpositioned)
 import GraphQL.Templater.Positions (Positions)
@@ -35,7 +34,7 @@ modifyTextAt
   -> Int
   -> List (Ast Positions)
   -> Maybe (List (Ast Positions))
-modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions (spy "change" pc) (reverse res)
+modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reverse res)
   where
   go
     :: { posChange :: Maybe PosChange
