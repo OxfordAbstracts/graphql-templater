@@ -17,8 +17,7 @@ module GraphQL.Templater.View.Editor
   , getViewUpdateContent
   , matchBefore
   , setContent
-  )
-  where
+  ) where
 
 import Prelude
 
@@ -134,7 +133,7 @@ foreign import makeView
 
 foreign import getViewContent :: EditorView -> Effect String
 
-foreign import setContent :: String ->  EditorView -> Effect Unit
+foreign import setContent :: String -> EditorView -> Effect Unit
 
 foreign import getViewUpdateContent :: ViewUpdate -> Effect String
 

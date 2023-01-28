@@ -1,8 +1,7 @@
 module GraphQL.Templater.Ast.Print
   ( printPositioned
   , printUnpositioned
-  )
-  where
+  ) where
 
 import Prelude
 
@@ -26,7 +25,6 @@ import Parsing (Position(..))
 printPositioned :: List (Ast Positions) -> String
 printPositioned = displayPositionedPrintResult <<< printMapTemplateAsts
 
-
 displayPositionedPrintResult :: PrintResult Position -> String
 displayPositionedPrintResult result =
   evalState result 0
@@ -46,14 +44,12 @@ displayPositionedPrintResult result =
 printUnpositioned :: List (Ast Positions) -> String
 printUnpositioned = displayPrintResult <<< printMapTemplateAsts
 
-
 displayPrintResult :: PrintResult Int -> String
 displayPrintResult result =
   evalState result 0
     # (Map.toUnfoldable :: _ -> List _)
     <#> snd
     # fold
-
 
 type PrintResult k = State Int (Map k String)
 
