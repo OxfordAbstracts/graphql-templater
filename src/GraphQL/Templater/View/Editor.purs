@@ -16,7 +16,9 @@ module GraphQL.Templater.View.Editor
   , getViewContent
   , getViewUpdateContent
   , matchBefore
-  ) where
+  , setContent
+  )
+  where
 
 import Prelude
 
@@ -131,6 +133,9 @@ foreign import makeView
   -> Effect EditorView
 
 foreign import getViewContent :: EditorView -> Effect String
+
+foreign import setContent :: String ->  EditorView -> Effect Unit
+
 foreign import getViewUpdateContent :: ViewUpdate -> Effect String
 
 relint :: forall m. MonadEffect m => Array Diagnostic -> EditorView -> m Unit

@@ -43,6 +43,12 @@ export const getViewContent = (view) => () => {
   return view.state.doc.toString();
 };
 
+export const setContent = (content) => (view) => () => {
+  view.state.update({
+    changes: { from: 0, to: view.state.doc.length, insert: content },
+  });
+};
+
 export const getViewUpdateContent = (viewUpdate) => () => {
   return viewUpdate.state.doc.toString();
 };

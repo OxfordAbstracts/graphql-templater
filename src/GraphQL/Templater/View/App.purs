@@ -11,7 +11,7 @@ import Data.DateTime.Instant (Instant)
 import Data.Either (Either(..), either, hush)
 import Data.Foldable (intercalate)
 import Data.GraphQL.AST.Print (printAst)
-import Data.List (List(..))
+import Data.List (List(..), (:))
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), split)
@@ -21,11 +21,12 @@ import Data.String.Regex.Unsafe (unsafeRegex)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
-import Debug (traceM)
+import Debug (spy, traceM)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Exception (message)
 import Foreign.Object as Object
-import GraphQL.Templater.Ast (AstPos)
+import GraphQL.Templater.Ast (Ast(..), AstPos)
+import GraphQL.Templater.Ast.Print (printTemplateAsts)
 import GraphQL.Templater.Eval (EvalResult(..), eval)
 import GraphQL.Templater.Eval.MakeQuery (toGqlString)
 import GraphQL.Templater.GetSchema (getGqlDoc)
@@ -35,7 +36,7 @@ import GraphQL.Templater.TypeCheck.Errors (TypeErrorWithPath(..))
 import GraphQL.Templater.TypeCheck.Errors.Display (displayPositionedError)
 import GraphQL.Templater.TypeCheck.Errors.GetPositions (getPositions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
-import GraphQL.Templater.View.Editor (Diagnostic, ViewUpdate, getViewContent, getViewUpdateContent, matchBefore)
+import GraphQL.Templater.View.Editor (Diagnostic, ViewUpdate, getViewContent, getViewUpdateContent, matchBefore, setContent)
 import GraphQL.Templater.View.Editor as Editor
 import Halogen (ClassName(..), liftEffect)
 import Halogen as H
@@ -44,7 +45,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (class_)
 import Halogen.HTML.Properties as HP
-import Parsing (ParseError(..), Position(..))
+import Parsing (ParseError(..), Position(..), initialPos)
 import Type.Proxy (Proxy(..))
 
 data Action
@@ -124,17 +125,19 @@ component =
                         , type: Just "keyword"
                         , apply: Just \{ view, from, to } -> do
                             content <- getViewContent view
-                            traceM { content }
-                            -- case parse content of
-                            --   Left _ -> pure unit
-                            --   Right asts -> do
-                            --     let
-                            --       newContent = 
-                            --         String.take from content
-                            --         <> "{{each " <> text <> " as |" <> text <> "|}}"
-                            --         <> String.drop to content
-                            --     _ <- Editor.setContent view newContent
-                            --     pure unit
+                            case spy "parsed" $ parse content of
+                              Left _ -> pure unit
+                              Right asts' ->
+                                setContent
+                                  ( printTemplateAsts $
+                                      asts' <> pure
+                                        ( Text " new text "
+                                            { start: initialPos
+                                            , end: initialPos
+                                            }
+                                        )
+                                  )
+                                  view
                             pure unit
                         }
                       ]
