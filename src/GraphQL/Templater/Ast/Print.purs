@@ -6,6 +6,7 @@ module GraphQL.Templater.Ast.Print
 import Prelude
 
 import Control.Monad.State (State, evalState, modify)
+import Data.Bifunctor (lmap)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.GraphQL.AST.Print (printAst)
 import Data.List (List(..), fold, foldl, last, (:))
@@ -16,6 +17,8 @@ import Data.String as String
 import Data.String.Utils (unsafeRepeat)
 import Data.Traversable (class Foldable, class Traversable, sequence)
 import Data.Tuple (Tuple(..), snd)
+import Debug (spy, spyWith)
+import Foreign.Object as Object
 import GraphQL.Templater.Ast (Arg(..), ArgName(..), Ast(..), Value(..), VarPartName(..), VarPath(..), VarPathPart(..))
 import GraphQL.Templater.Positions (Positions)
 import Parsing (Position(..))
@@ -28,6 +31,7 @@ printPositioned = displayPositionedPrintResult <<< printMapTemplateAsts
 displayPositionedPrintResult :: PrintResult Position -> String
 displayPositionedPrintResult result =
   evalState result 0
+    # spyWith "map" ((Map.toUnfoldable :: _ -> List _ ) >>> map (lmap show) >>> Object.fromFoldable)
     # (Map.toUnfoldable :: _ -> List _)
     # foldl insert ""
   where
@@ -142,13 +146,13 @@ printMapArg idx (Arg { name, value: Value value valuePos } { start }) =
 printMapArgName :: forall k. PrintKey k => ArgName Positions -> PrintResult k
 printMapArgName (ArgName name { start, end }) = combine
   [ atStart start name
-  , atStart (adjustPosition 0 end) ": "
+  , atStart end ": "
   ]
 
 combine :: forall f k. Ord k => Foldable f => Traversable f => f (PrintResult k) -> (PrintResult k)
 combine results = do
-  x <- sequence results
-  pure $ Map.unions x
+  f <- sequence results
+  pure $ Map.unions f
 
 empty :: forall k. PrintResult k
 empty = pure Map.empty

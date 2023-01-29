@@ -19,43 +19,46 @@ import Test.Spec.Assertions (fail)
 spec :: Spec Unit
 spec = do
   describe "GraphQL.Templater.Ast.Print" do
-    describe "printPositioned & printUnpositioned" do
-      roundTripSimple "text only"
+    roundTripSimple "text only"
 
-      roundTripSimple " text with whitespace "
+    roundTripSimple " text with whitespace "
 
-      roundTripSimple "\n text with newlines \n"
+    roundTripSimple "\n text with newlines \n"
 
-      roundTripSimple " \n text with newlines and whitespace \n "
+    roundTripSimple " \n text with newlines and whitespace \n "
 
-      roundTripSimple "var {{variable}}"
+    roundTripSimple "var {{variable}}"
 
-      roundTripSimple "chained {{chained.variable}}"
+    roundTripSimple "chained {{chained.variable}}"
 
-      roundTripSimple "parents and roots {{chained.*parent.*root}}"
+    roundTripSimple "parents and roots {{chained.*parent.*root}}"
 
-      roundTripSimple "arg {{variable(arg1: 1)}}"
+    roundTripSimple "arg {{variable(arg1: 1)}}"
 
-      roundTripSimple "args {{variable(arg1: 1, arg2: 2)}}"
+    roundTripSimple "args {{variable(arg1: 1, arg2: 2)}}"
 
-      roundTripSimple "args on args {{chained(b: true).variable(arg1: 1, arg2: 2)}}"
+    roundTripSimple "object {{variable(arg: { k1: 1 })}}"
 
-      roundTrip [ hasEach ] "eaches" """{{#each array }}text{{/each}}"""
+    roundTripSimple "object unformatted {{variable(arg: {k1:1})}}"
 
-      roundTrip [ hasEach ] "eaches on newlines"
-        """{{#each array }} 
+    roundTripSimple "args on args {{chained(b: true).variable(arg1: 1, arg2: 2)}}"
+
+    roundTrip [ hasEach ] "eaches" """{{#each array }}text{{/each}}"""
+
+    roundTrip [ hasEach ] "eaches on newlines"
+      """{{#each array }} 
       text{{/each}} """
 
-      roundTrip [ hasEach ] "eaches with variables"
-        """{{#each array }}
+    roundTrip [ hasEach ] "eaches with variables"
+      """{{#each array }}
       {{var.a}} {{/each}}"""
 
-      roundTrip [ hasWith ] "withs with variables with args"
-        """{{#with obj }}
+    roundTrip [ hasWith ] "withs with variables with args"
+      """{{#with obj }}
       {{var.a(a: "b")}} {{/with}}"""
 
-      roundTrip [ hasEach, hasWith ] "a complex example"
-        """{{#each items}}
+    roundTrip [ hasEach, hasWith ] "a complex example"
+      """{{#each items}}
       {{#each inner-items}}{{var.a(a: "b")}}{{/each}} some text {{/each}}
       {{#with obj }} other text
       {{*parent.var.a(a: "b").a.x}} {{/with}}
