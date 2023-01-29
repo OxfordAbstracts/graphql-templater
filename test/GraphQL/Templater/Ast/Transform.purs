@@ -120,78 +120,12 @@ spec = do
       it "should insert into an each" do
         parseAndTestInsertTextAt "a" 15 "{{#each list}}  {{/each}}" "{{#each list}} a {{/each}}"
 
+      it "should insert into an each with newlines" do
+        parseAndTestInsertTextAt "a" 16 "\n{{#each list}}  \n{{/each}}\n" "\n{{#each list}} a \n{{/each}}\n"
+
 parseAndTestInsertTextAt :: forall m. MonadEffect m => MonadThrow Error m => String -> Int -> String -> String -> m Unit
 parseAndTestInsertTextAt insert idx input expected =
   case parse input, parse expected of
     Right inputParsed, Right expectedParsed -> do
       foldMap printPositioned (insertTextAt insert idx inputParsed) `shouldEqual` printPositioned expectedParsed
     _, _ -> fail "failed to parse"
-
--- x =
---   ( Just
---       ( ( Each
---             ( VarPath
---                 ( NonEmptyList
---                     ( NonEmpty
---                         ( VarPathPart
---                             { args: Nothing, name: (VarPartNameGqlName "list" { end: (Position { column: 13, index: 12, line: 1 }), start: (Position { column: 9, index: 8, line: 1 }) }) }
---                             { end: (Position { column: 13, index: 12, line: 1 })
---                             , start: (Position { column: 9, index: 8, line: 1 })
---                             }
---                         )
---                         Nil
---                     )
---                 )
---                 { end: (Position { column: 13, index: 12, line: 1 })
---                 , start: (Position { column: 9, index: 8, line: 1 })
---                 }
---             )
---             ( ( Text " a "
---                   { end: (Position { column: 4, index: 17, line: 1 })
---                   , start: (Position { column: 15, index: 14, line: 1 })
---                   }
---               ) : Nil
---             )
---             { end: (Position { column: 13, index: 25, line: 1 })
---             , start: (Position { column: 1, index: 0, line: 1 })
---             }
---         ) : Nil
---       )
---   )
-
--- x =
---   ( ( Each
---         ( VarPath
---             ( NonEmptyList
---                 ( NonEmpty
---                     ( VarPathPart
---                         { args: Nothing
---                         , name:
---                             ( VarPartNameGqlName "list"
---                                 { end: (Position { column: 13, index: 12, line: 1 })
---                                 , start: (Position { column: 9, index: 8, line: 1 })
---                                 }
---                             )
---                         }
---                         { end: (Position { column: 13, index: 12, line: 1 })
---                         , start: (Position { column: 9, index: 8, line: 1 })
---                         }
---                     )
---                     Nil
---                 )
---             )
---             { end: (Position { column: 13, index: 12, line: 1 })
---             , start: (Position { column: 9, index: 8, line: 1 })
---             }
---         )
---         ( ( Text "  "
---               { end: (Position { column: 17, index: 16, line: 1 })
---               , start: (Position { column: 15, index: 14, line: 1 })
---               }
---           ) : Nil
---         )
---         { end: (Position { column: 26, index: 25, line: 1 })
---         , start: (Position { column: 1, index: 0, line: 1 })
---         }
---     ) : Nil
---   )

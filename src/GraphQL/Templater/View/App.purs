@@ -14,7 +14,7 @@ import Data.GraphQL.AST.Print (printAst)
 import Data.List (List(..))
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
-import Data.String (Pattern(..), split)
+import Data.String (Pattern(..), joinWith, split)
 import Data.String as String
 import Data.String.Regex.Flags (noFlags)
 import Data.String.Regex.Unsafe (unsafeRegex)
@@ -37,7 +37,7 @@ import GraphQL.Templater.TypeCheck.Errors (TypeErrorWithPath(..))
 import GraphQL.Templater.TypeCheck.Errors.Display (displayPositionedError)
 import GraphQL.Templater.TypeCheck.Errors.GetPositions (getPositions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
-import GraphQL.Templater.View.Editor (Diagnostic, ViewUpdate, getViewContent, getViewUpdateContent, matchBefore, setContent)
+import GraphQL.Templater.View.Editor (ViewUpdate, Diagnostic, getViewContent, getViewUpdateContent, matchBefore, setContent)
 import GraphQL.Templater.View.Editor as Editor
 import Halogen (ClassName(..), liftEffect)
 import Halogen as H
@@ -47,6 +47,7 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (class_)
 import Halogen.HTML.Properties as HP
 import Parsing (ParseError(..), Position(..))
+import Parsing.String (parseErrorHuman)
 import Type.Proxy (Proxy(..))
 
 data Action
@@ -60,12 +61,18 @@ type State =
   , headers :: String
   , template :: String
   , ast :: Maybe (List AstPos)
-  , errorDiagnostics :: Array Diagnostic
+  , errors :: List TemplaterError
   , result :: String
   , printedSchema :: Maybe String
   , schemaTypeTree :: Maybe GqlTypeTree
   , fullQueryCache :: Map.Map String Json
   , mostRecentEval :: Maybe Instant
+  }
+
+type TemplaterError =
+  { message :: String
+  , from :: Position
+  , to :: Maybe Position
   }
 
 component :: forall output m q input. MonadAff m => H.Component q input output m
@@ -87,7 +94,7 @@ component =
     , template: initialQuery
     , ast: Nothing
     , result: ""
-    , errorDiagnostics: []
+    , errors: Nil
     , printedSchema: Nothing
     , schemaTypeTree: Nothing
     , fullQueryCache: Map.empty
@@ -112,7 +119,7 @@ component =
           ]
       , HH.slot (Proxy :: Proxy "Editor") unit Editor.component
           { doc: initialQuery
-          , lint: state.errorDiagnostics
+          , lint: [] -- state.errorDiagnostics
           , autocompletion: Just \ctx -> do
               matchBrackets <- matchBefore (unsafeRegex """\{\{\w*""" noFlags) ctx
               for matchBrackets \{ from } -> do
@@ -127,7 +134,7 @@ component =
                         , apply: Just \applyInput@{ view } -> do
                             content <- getViewContent view
                             case parse content of
-                              Left _ -> pure unit
+                              Left err -> Console.error $ joinWith "\n" (parseErrorHuman content 64 err)
                               Right asts' ->
                                 case insertTextAt "each" applyInput.from asts' of
                                   Just asts'' -> do
@@ -140,6 +147,16 @@ component =
           }
           case _ of
             Editor.DocChanged viewUpdate -> SetTemplate viewUpdate
+
+      , if state.errors /= Nil then
+          HH.div [ css "p-1 m-2 bg-red-200 text-red-800" ]
+            [ HH.text "Errors:"
+            , HH.ul_ $ Array.fromFoldable state.errors <#> \{from, message} -> 
+                HH.li [ css "whitespace-pre-wrap border-2 rounded-md p-1 m-2" ]
+                  [ HH.text $ joinWith "\n"  $ parseErrorHuman state.template 64 $ ParseError message from ]
+            ]
+        else
+          HH.text ""
 
       , HH.div [] [ HH.text "Result:" ]
       , HH.pre
@@ -179,31 +196,47 @@ component =
     SetTemplate viewUpdate -> do
       template <- liftEffect $ getViewUpdateContent viewUpdate
       { url, headers, schemaTypeTree } <- H.modify _ { template = template }
+      let
+
+        toDiagnostic :: TemplaterError -> Diagnostic
+        toDiagnostic err =
+          let
+            getIndex (Position { index }) = index
+            from = getIndex err.from
+          in
+            { from
+            , message: err.message
+            , severity: Editor.Error
+            , to: maybe (from + 1) getIndex err.to
+            }
+
+        relint errs = H.tell _editor unit $ Editor.Relint $ Array.fromFoldable $ map toDiagnostic errs
+
       case parse template of
-        Left (ParseError err (Position pos)) -> H.modify_ _
-          { errorDiagnostics = pure
-              { from: pos.index
-              , message: err
-              , severity: Editor.Error
-              , to: pos.index + 1
-              }
-          }
+        Left (ParseError message pos) -> do
+          { errors } <- H.modify _
+            { errors = pure
+                { from: pos
+                , message
+                , to: Nothing
+                }
+            }
+          relint errors
         Right ast -> do
           let typeErrors = maybe Nil (flip getTypeErrorsFromTree ast) schemaTypeTree
-          { errorDiagnostics } <- H.modify _
-            { errorDiagnostics = Array.fromFoldable $ typeErrors
+          { errors } <- H.modify _
+            { errors = typeErrors
                 <#> \err@(TypeErrorWithPath _ _path _) ->
                   let
-                    { start: Position start, end: Position end } = getPositions err
+                    { start, end } = getPositions err
                   in
-                    { from: start.index
+                    { from: start
                     , message: displayPositionedError err
-                    , severity: Editor.Error
-                    , to: end.index
+                    , to: Just end
                     }
             }
 
-          H.tell _editor unit $ Editor.Relint errorDiagnostics
+          relint errors
 
           res <- eval
             { ast

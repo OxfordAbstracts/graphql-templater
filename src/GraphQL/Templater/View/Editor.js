@@ -26,9 +26,7 @@ export const makeView =
           ? autocompletion({
               override: [
                 (ctx) => {
-                  const autoResult = autocomplete(ctx)();
-                  console.log({ autoResult });
-                  return autoResult;
+                  return autocomplete(ctx)();
                 },
               ],
             })
