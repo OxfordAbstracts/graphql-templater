@@ -10,7 +10,7 @@ import Data.Maybe (fromMaybe)
 import Data.Set as Set
 import Effect.Exception (Error, error)
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
-import GraphQL.Templater.Parser (parse)
+import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.TypeCheck (getTypeErrorsFromTree)
 import GraphQL.Templater.TypeCheck.Errors (ArgTypeError(..), PositionedError, TypeError(..), TypeErrorWithPath(..))
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeTreeFromDoc)

@@ -10,7 +10,7 @@ import Effect.Exception (Error)
 import GraphQL.Templater.Ast (Ast)
 import GraphQL.Templater.Ast as Ast
 import GraphQL.Templater.Ast.Print (printPositioned, printUnpositioned)
-import GraphQL.Templater.Parser (parse)
+import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Positions (Positions)
 import Parsing (parseErrorMessage)
 import Test.Spec (Spec, SpecT, describe, it)

@@ -1,4 +1,4 @@
-module GraphQL.Templater.Parser
+module GraphQL.Templater.Ast.Parser
   ( parse
   , varPartNameParser
   ) where

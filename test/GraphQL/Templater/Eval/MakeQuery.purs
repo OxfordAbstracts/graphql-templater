@@ -13,7 +13,7 @@ import Data.String.Regex.Flags (global)
 import Effect.Exception (Error)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..))
 import GraphQL.Templater.Eval.MakeQuery as MakeQuery
-import GraphQL.Templater.Parser (parse)
+import GraphQL.Templater.Ast.Parser (parse)
 import Partial.Unsafe (unsafeCrashWith)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)

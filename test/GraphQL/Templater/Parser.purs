@@ -1,4 +1,4 @@
-module Test.GraphQL.Templater.Parser
+module Test.GraphQL.Templater.Ast.Parser
   ( spec
   ) where
 
@@ -10,7 +10,7 @@ import Data.List.Types (List(..), nelCons, (:))
 import Data.Maybe (Maybe(..))
 import Data.Newtype (wrap)
 import GraphQL.Templater.Ast (Arg(..), ArgName(..), Ast(..), Value(..), VarPartName(..), VarPath(..), VarPathPart(..))
-import GraphQL.Templater.Parser (parse)
+import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Positions (Positions)
 import Parsing (Position(..))
 import Test.Spec (Spec, describe, it)
@@ -18,7 +18,7 @@ import Test.Spec.Assertions (shouldEqual)
 
 spec :: Spec Unit
 spec = do
-  describe "GraphQL.Templater.Parser" do
+  describe "GraphQL.Templater.Ast.Parser" do
     describe "parse" do
       it "should return `Text` when there are no variables" do
         parse "test" `shouldEqual` Right (pure $ Text "test" (line1 1 5))
