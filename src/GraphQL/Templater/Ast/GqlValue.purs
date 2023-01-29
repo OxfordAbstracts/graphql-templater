@@ -15,9 +15,9 @@ import Data.Newtype (class Newtype)
 import Data.Show.Generic (genericShow)
 import Data.Tuple (Tuple(..))
 
-derive instance valueGeneric ∷ Generic Value _
+derive instance Generic Value _
 
-instance valueShow ∷ Show Value where
+instance Show Value where
   show v = genericShow v
 
 instance EncodeJson Value where 
@@ -26,9 +26,9 @@ instance EncodeJson Value where
 instance DecodeJson Value where 
   decodeJson a = genericDecodeJson a
 
-derive instance valueEq ∷ Eq Value
+derive instance Eq Value
 
-derive instance valueOrd ∷ Ord Value
+derive instance Ord Value
 
 instance Hashable Value where 
   hash = show >>> hash
@@ -45,9 +45,9 @@ data Value
   | Value_ListValue ListValue
   | Value_ObjectValue ObjectValue
 
-derive instance intValueGeneric ∷ Generic IntValue _
+derive instance Generic IntValue _
 
-instance intValueShow ∷ Show IntValue where
+instance Show IntValue where
   show v = genericShow v
 
 instance EncodeJson IntValue where 
@@ -56,9 +56,9 @@ instance EncodeJson IntValue where
 instance DecodeJson IntValue where 
   decodeJson a = genericDecodeJson a
 
-derive instance intValueEq ∷ Eq IntValue
+derive instance Eq IntValue
 
-derive instance intValueOrd ∷ Ord IntValue
+derive instance Ord IntValue
 
 _IntValue ∷
   Tuple
@@ -73,14 +73,14 @@ _IntValue =
         IntValue a → Just a
     )
 
-derive instance intValueNewtype ∷ Newtype IntValue _
+derive instance Newtype IntValue _
 
 newtype IntValue
   = IntValue Int
 
-derive instance floatValueGeneric ∷ Generic FloatValue _
+derive instance Generic FloatValue _
 
-instance floatValueShow ∷ Show FloatValue where
+instance Show FloatValue where
   show v = genericShow v
 
 instance EncodeJson FloatValue where 
@@ -89,9 +89,9 @@ instance EncodeJson FloatValue where
 instance DecodeJson FloatValue where 
   decodeJson a = genericDecodeJson a
 
-derive instance floatValueEq ∷ Eq FloatValue
+derive instance Eq FloatValue
 
-derive instance floatValueOrd ∷ Ord FloatValue
+derive instance Ord FloatValue
 
 _FloatValue ∷
   Tuple
@@ -106,14 +106,14 @@ _FloatValue =
         FloatValue a → Just a
     )
 
-derive instance floatValueNewtype ∷ Newtype FloatValue _
+derive instance Newtype FloatValue _
 
 newtype FloatValue
   = FloatValue Number
 
-derive instance booleanValueGeneric ∷ Generic BooleanValue _
+derive instance Generic BooleanValue _
 
-instance booleanValueShow ∷ Show BooleanValue where
+instance Show BooleanValue where
   show v = genericShow v
 
 instance EncodeJson BooleanValue where 
@@ -122,9 +122,9 @@ instance EncodeJson BooleanValue where
 instance DecodeJson BooleanValue where 
   decodeJson a = genericDecodeJson a
 
-derive instance booleanValueEq ∷ Eq BooleanValue
+derive instance Eq BooleanValue
 
-derive instance booleanValueOrd ∷ Ord BooleanValue
+derive instance Ord BooleanValue
 
 _BooleanValue ∷
   Tuple
@@ -139,14 +139,14 @@ _BooleanValue =
         BooleanValue a → Just a
     )
 
-derive instance booleanValueNewtype ∷ Newtype BooleanValue _
+derive instance Newtype BooleanValue _
 
 newtype BooleanValue
   = BooleanValue Boolean
 
-derive instance stringValueGeneric ∷ Generic StringValue _
+derive instance Generic StringValue _
 
-instance stringValueShow ∷ Show StringValue where
+instance Show StringValue where
   show v = genericShow v
 
 instance EncodeJson StringValue where 
@@ -155,9 +155,9 @@ instance EncodeJson StringValue where
 instance DecodeJson StringValue where 
   decodeJson a = genericDecodeJson a
 
-derive instance stringValueEq ∷ Eq StringValue
+derive instance Eq StringValue
 
-derive instance stringValueOrd ∷ Ord StringValue
+derive instance Ord StringValue
 
 _StringValue ∷
   Tuple
@@ -172,14 +172,14 @@ _StringValue =
         StringValue a → Just a
     )
 
-derive instance stringValueNewtype ∷ Newtype StringValue _
+derive instance Newtype StringValue _
 
 newtype StringValue
   = StringValue String
 
-derive instance nullValueGeneric ∷ Generic NullValue _
+derive instance Generic NullValue _
 
-instance nullValueShow ∷ Show NullValue where
+instance Show NullValue where
   show v = genericShow v
 
 instance EncodeJson NullValue where 
@@ -188,9 +188,9 @@ instance EncodeJson NullValue where
 instance DecodeJson NullValue where 
   decodeJson a = genericDecodeJson a
 
-derive instance nullValueEq ∷ Eq NullValue
+derive instance Eq NullValue
 
-derive instance nullValueOrd ∷ Ord NullValue
+derive instance Ord NullValue
 
 _NullValue ∷
   Tuple
@@ -208,9 +208,9 @@ _NullValue =
 data NullValue
   = NullValue
 
-derive instance enumValueGeneric ∷ Generic EnumValue _
+derive instance Generic EnumValue _
 
-instance enumValueShow ∷ Show EnumValue where
+instance Show EnumValue where
   show v = genericShow v
 
 instance EncodeJson EnumValue where 
@@ -219,9 +219,9 @@ instance EncodeJson EnumValue where
 instance DecodeJson EnumValue where 
   decodeJson a = genericDecodeJson a
 
-derive instance enumValueEq ∷ Eq EnumValue
+derive instance Eq EnumValue
 
-derive instance enumValueOrd ∷ Ord EnumValue
+derive instance Ord EnumValue
 
 _EnumValue ∷
   Tuple
@@ -236,14 +236,14 @@ _EnumValue =
         EnumValue a → Just a
     )
 
-derive instance enumValueNewtype ∷ Newtype EnumValue _
+derive instance Newtype EnumValue _
 
 newtype EnumValue
   = EnumValue String
 
-derive instance listValueGeneric ∷ Generic ListValue _
+derive instance Generic ListValue _
 
-instance listValueShow ∷ Show ListValue where
+instance Show ListValue where
   show v = genericShow v
 
 instance EncodeJson ListValue where 
@@ -251,9 +251,9 @@ instance EncodeJson ListValue where
 
 instance DecodeJson ListValue where 
   decodeJson a = genericDecodeJson a
-derive instance listValueEq ∷ Eq ListValue
+derive instance Eq ListValue
 
-derive instance listValueOrd ∷ Ord ListValue
+derive instance Ord ListValue
 
 _ListValue ∷
   Tuple
@@ -268,14 +268,14 @@ _ListValue =
         ListValue a → Just a
     )
 
-derive instance listValueNewtype ∷ Newtype ListValue _
+derive instance Newtype ListValue _
 
 newtype ListValue
   = ListValue (List Value)
 
-derive instance objectValueGeneric ∷ Generic ObjectValue _
+derive instance Generic ObjectValue _
 
-instance objectValueShow ∷ Show ObjectValue where
+instance Show ObjectValue where
   show v = genericShow v
 
 instance EncodeJson ObjectValue where 
@@ -284,9 +284,9 @@ instance EncodeJson ObjectValue where
 instance DecodeJson ObjectValue where 
   decodeJson a = genericDecodeJson a
 
-derive instance objectValueEq ∷ Eq ObjectValue
+derive instance Eq ObjectValue
 
-derive instance objectValueOrd ∷ Ord ObjectValue
+derive instance Ord ObjectValue
 
 _ObjectValue ∷
   Tuple
@@ -301,15 +301,15 @@ _ObjectValue =
         ObjectValue a → Just a
     )
 
-derive instance objectValueNewtype ∷ Newtype ObjectValue _
+derive instance Newtype ObjectValue _
 
 newtype ObjectValue
   = ObjectValue (List Argument)
 
 
-derive instance argumentGeneric ∷ Generic Argument _
+derive instance Generic Argument _
 
-instance argumentShow ∷ Show Argument where
+instance Show Argument where
   show v = genericShow v
 
 instance EncodeJson Argument where 
@@ -318,9 +318,9 @@ instance EncodeJson Argument where
 instance DecodeJson Argument where 
   decodeJson a = genericDecodeJson a
 
-derive instance argumentEq ∷ Eq Argument
+derive instance Eq Argument
 
-derive instance argumentOrd ∷ Ord Argument
+derive instance Ord Argument
 
 derive instance Newtype Argument _
 
@@ -346,9 +346,9 @@ newtype Argument
   = Argument T_Argument
 
 
-derive instance variableGeneric ∷ Generic Variable _
+derive instance Generic Variable _
 
-instance variableShow ∷ Show Variable where
+instance Show Variable where
   show v = genericShow v
 
 instance EncodeJson Variable where 
@@ -357,9 +357,9 @@ instance EncodeJson Variable where
 instance DecodeJson Variable where 
   decodeJson a = genericDecodeJson a
 
-derive instance variableEq ∷ Eq Variable
+derive instance Eq Variable
 
-derive instance variableOrd ∷ Ord Variable
+derive instance Ord Variable
 
 _Variable ∷
   Tuple
@@ -374,7 +374,7 @@ _Variable =
         Variable a → Just a
     )
 
-derive instance variableNewtype ∷ Newtype Variable _
+derive instance Newtype Variable _
 
 newtype Variable
   = Variable String
