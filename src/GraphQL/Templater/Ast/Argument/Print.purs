@@ -4,8 +4,8 @@ import Prelude
 
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
-import GraphQL.Templater.Ast.Argument (Argument(..), ListValue(..), ObjectValue(..), StringWith(..), Value(..))
-import GraphQL.Templater.Ast.PrintUtils (class PrintKey, PrintResult, atStart, combine, mapWithPrevious)
+import GraphQL.Templater.Ast.Argument (Argument(..), ListValue(..), ObjectValue(..), ArgName(..), Value(..))
+import GraphQL.Templater.Ast.PrintUtils (class PrintKey, PrintResult, atEnd, atStart, combine, mapWithPrevious)
 import GraphQL.Templater.Positions (Positions)
 
 printValue :: forall k. PrintKey k => Value Positions -> PrintResult k
@@ -20,12 +20,12 @@ printValue = case _ of
   Value_ListValue list { start, end } -> combine
     [ atStart start "["
     , printListValues list
-    , atStart end "]"
+    , atEnd end "]"
     ]
   Value_ObjectValue obj { start, end } -> combine
     [ atStart start "{"
     , printObjectValues obj
-    , atStart end "}"
+    , atEnd end "}"
     ]
   where
   printListValues :: ListValue Positions -> PrintResult k
@@ -44,14 +44,14 @@ printObjectValue prev (Argument { name, value }) = case prev of
   Just (Argument prevArg) -> combine [ atStart prevArg.pos.end ", ", printObjectValue' name value ]
   _ -> printObjectValue' name value
 
-printObjectValue' :: forall k. PrintKey k => StringWith Positions -> Value Positions -> PrintResult k
-printObjectValue' (StringWith name strPos) value = combine
+printObjectValue' :: forall k. PrintKey k => ArgName Positions -> Value Positions -> PrintResult k
+printObjectValue' (ArgName name strPos) value = combine
   [ atStart strPos.start name
   , atStart strPos.end ": "
   , printValue value
   ]
 
-getValuePos :: Value Positions -> Positions
+getValuePos :: forall a. Value a -> a
 getValuePos = case _ of
   Value_StringValue _ a -> a
   Value_IntValue _ a -> a

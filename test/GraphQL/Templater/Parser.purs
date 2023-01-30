@@ -5,11 +5,11 @@ module Test.GraphQL.Templater.Ast.Parser
 import Prelude
 
 import Data.Either (Either(..))
-import Data.GraphQL.AST (Value(..))
 import Data.List.Types (List(..), nelCons, (:))
 import Data.Maybe (Maybe(..))
 import Data.Newtype (wrap)
-import GraphQL.Templater.Ast (Arg(..), ArgName(..), Ast(..), Value(..), VarPartName(..), VarPath(..), VarPathPart(..))
+import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..))
+import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..), Value(..))
 import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Positions (Positions)
 import Parsing (Position(..))
@@ -118,11 +118,11 @@ spec = do
     unit
 
   mkArgs = map \{ name, value } ->
-    ( Arg
+    ( Argument
         { name: ArgName name unit
-        , value: Value value unit
+        , value: value unit
+        , pos: unit
         }
-        unit
     )
 
 line1

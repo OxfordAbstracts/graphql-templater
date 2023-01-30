@@ -14,7 +14,9 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (drop, take)
 import Data.Tuple (Tuple(..))
-import GraphQL.Templater.Ast (Arg(..), ArgName(..), Args, Ast(..), Value(..), VarPartName(..), VarPath(..), VarPathPart(..))
+import GraphQL.Templater.Ast (Args, Ast(..), VarPartName(..), VarPath(..), VarPathPart(..))
+import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..))
+import GraphQL.Templater.Ast.Argument.ToGqlValue (toGqlValue)
 
 newtype SelectionTree a =
   SelectionTree (Selections a)
@@ -54,10 +56,10 @@ toGqlSelectionSet (SelectionTree sels) = GqlAst.SelectionSet
         }
 
   where
-  toAstArg :: Arg a -> GqlAst.Argument
-  toAstArg (Arg { name: (ArgName name _), value: (Value value _) } _) = GqlAst.Argument
+  toAstArg :: Argument a -> GqlAst.Argument
+  toAstArg (Argument { name: (ArgName name _), value }) = GqlAst.Argument
     { name
-    , value
+    , value: toGqlValue value
     }
 
 getAlias ∷ forall a. String → Args a → Maybe String

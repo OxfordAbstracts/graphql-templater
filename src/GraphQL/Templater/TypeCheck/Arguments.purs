@@ -12,7 +12,10 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
-import GraphQL.Templater.Ast (Arg(..), ArgName(..), Args, Value(..))
+import GraphQL.Templater.Ast (Args)
+import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..))
+import GraphQL.Templater.Ast.Argument.Print (getValuePos)
+import GraphQL.Templater.Ast.Argument.ToGqlValue (toGqlValue)
 import GraphQL.Templater.TypeCheck.Errors (ArgTypeError(..), MismatchReason(..))
 
 typeCheckArguments :: forall a. Maybe ArgumentsDefinition -> Maybe (Args a) -> List (ArgTypeError a)
@@ -28,15 +31,15 @@ typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
           | isJust defaultValue || isNullableType type_ -> res
           | true -> ArgRequired name : res
 
-        Just (Arg { value: Value value a } _)
-          | Just reasons <- NonEmpty.fromList $ valueIsOfType type_ value ->
+        Just (Argument { value })
+          | Just reasons <- NonEmpty.fromList $ valueIsOfType type_ (toGqlValue value) ->
               ArgTypeMismatch
                 { name
                 , definitionType: type_
-                , argValue: value
+                , argValue: toGqlValue value
                 , reasons
                 }
-                a :
+                (getValuePos value) :
                 res
 
         _ -> res
@@ -47,8 +50,8 @@ typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
       AST.Type_ListType _ -> true
       AST.Type_NonNullType _ -> false
 
-    checkArg :: List (ArgTypeError a) -> Arg a -> List (ArgTypeError a)
-    checkArg res (Arg { name: ArgName name a } _) =
+    checkArg :: List (ArgTypeError a) -> Argument a -> List (ArgTypeError a)
+    checkArg res (Argument { name: ArgName name a }) =
       case Map.lookup name defsMap of
         Nothing -> ArgUnknown name a : res
         _ -> res
@@ -100,8 +103,8 @@ typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
     defsMap :: Map String InputValueDefinition
     defsMap = Map.fromFoldable $ map (\def@(InputValueDefinition { name }) -> Tuple name def) defs
 
-    argsMap :: Map String (Arg a)
-    argsMap = Map.fromFoldable $ map (\arg@(Arg { name } _) -> Tuple (argNameVal name) arg) args
+    argsMap :: Map String (Argument a)
+    argsMap = Map.fromFoldable $ map (\arg@(Argument { name }) -> Tuple (argNameVal name) arg) args
 
 argNameVal :: forall a. ArgName a -> String
 argNameVal (ArgName name _) = name

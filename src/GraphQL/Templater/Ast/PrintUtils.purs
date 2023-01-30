@@ -33,7 +33,7 @@ displayPositionedPrintResult result =
     else
       case String.splitAt index res of
         { before, after } ->
-          before <> str <> after
+          before <> str <> String.drop (String.length str) after
 
 type PrintResult k = State Int (Map k String)
 

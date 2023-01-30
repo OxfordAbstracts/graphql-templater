@@ -15,7 +15,7 @@ import Data.Number as DN
 import Data.String.CodePoints as CP
 import Data.String.CodeUnits (fromCharArray)
 import Data.Traversable (sequence)
-import GraphQL.Templater.Ast.Argument (StringWith(..))
+import GraphQL.Templater.Ast.Argument (ArgName(..))
 import GraphQL.Templater.Ast.Argument as AST
 import GraphQL.Templater.Ast.ParseUtils (withPositions)
 import GraphQL.Templater.Positions (Positions)
@@ -243,7 +243,7 @@ listValue = (<$>) AST.ListValue <<< listish "[" "]"
 argument ∷ Parser String (AST.Value Positions) → Parser String (AST.Argument Positions)
 argument vc =
   map AST.Argument $ withPositions $ { name: _, value: _, pos: _ }
-    <$> withPositions (StringWith <$> name)
+    <$> withPositions (ArgName <$> name)
     <*> (ignoreMe *> char ':' *> ignoreMe *> vc)
 
 _listish ∷ ∀ p. Parser String p → Parser String (L.List p)

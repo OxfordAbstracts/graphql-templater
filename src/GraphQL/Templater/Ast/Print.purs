@@ -6,13 +6,14 @@ module GraphQL.Templater.Ast.Print
 import Prelude
 
 import Control.Monad.State (evalState)
-import Data.GraphQL.AST.Print (printAst)
 import Data.List (List(..), fold, last, (:))
 import Data.List.Types (toList)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Tuple (snd)
-import GraphQL.Templater.Ast (Arg(..), ArgName(..), Ast(..), Value(..), VarPartName(..), VarPath(..), VarPathPart(..))
+import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), Args)
+import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..))
+import GraphQL.Templater.Ast.Argument.Print (getValuePos, printValue)
 import GraphQL.Templater.Ast.PrintUtils (class PrintKey, PrintResult, adjustPosition, atEnd, atStart, combine, displayPositionedPrintResult, empty, mapWithPrevious)
 import GraphQL.Templater.Positions (Positions)
 
@@ -88,14 +89,14 @@ printMapVarPartName = case _ of
   VarPartNameRoot { start } ->
     atStart start "*root"
 
-printMapArgs :: forall k. PrintKey k => Maybe (List (Arg Positions)) -> PrintResult k
+printMapArgs :: forall k. PrintKey k => Maybe (Args Positions) -> PrintResult k
 printMapArgs = case _ of
   Nothing -> empty
   Just Nil -> empty
-  Just args@((Arg _ { start, end }) : _) ->
+  Just args@((Argument { pos: { start, end } }) : _) ->
     let
       argsEnd = adjustPosition 1 case last args of
-        Just (Arg _ pos) -> pos.end
+        Just (Argument { pos }) -> pos.end
         _ -> end
     in
       combine $
@@ -103,18 +104,20 @@ printMapArgs = case _ of
           <> mapWithPrevious printMapArg args
           <> pure (atEnd argsEnd ")")
 
-printMapArg :: forall k. PrintKey k => Maybe (Arg Positions) -> Arg Positions -> PrintResult k
-printMapArg prev (Arg { name, value: Value value valuePos } {}) =
+printMapArg :: forall k. PrintKey k => Maybe (Argument Positions) -> Argument Positions -> PrintResult k
+printMapArg prev (Argument { name, value }) =
   combine
     [ comma
     , printMapArgName name
-    , atStart valuePos.start (printAst value)
+    , printValue value
     ]
   where
   comma =
     case prev of
       Nothing -> empty
-      Just (Arg _ { end }) -> atEnd end ","
+      Just (Argument { pos: { end } }) -> atStart end ","
+
+  valuePos = getValuePos value
 
 printMapArgName :: forall k. PrintKey k => ArgName Positions -> PrintResult k
 printMapArgName (ArgName name { start, end }) = combine

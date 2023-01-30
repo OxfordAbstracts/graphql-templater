@@ -260,7 +260,7 @@ derive instance Ord a => Ord (Argument a)
 
 derive newtype instance (Show a, Hashable a) => Hashable (Argument a)
 
-type T_Argument a = { name :: StringWith a, value :: Value a, pos :: a }
+type T_Argument a = { name :: ArgName a, value :: Value a, pos :: a }
 
 derive instance Newtype (Argument a) _
 newtype Argument a = Argument (T_Argument a)
@@ -278,18 +278,18 @@ newtype Variable = Variable String
 
 derive instance Newtype Variable _
 
-derive instance Generic (StringWith a) _
+derive instance Generic (ArgName a) _
 
-instance Show a => Show (StringWith a) where
+instance Show a => Show (ArgName a) where
   show v = genericShow v
 
-derive instance Eq a => Eq (StringWith a)
+derive instance Eq a => Eq (ArgName a)
 
-derive instance Ord a => Ord (StringWith a)
+derive instance Ord a => Ord (ArgName a)
 
-derive instance Functor StringWith
+derive instance Functor ArgName
 
-data StringWith a = StringWith String a
+data ArgName a = ArgName String a
 
-instance (Eq a, Show a) => Hashable (StringWith a) where
+instance (Eq a, Show a) => Hashable (ArgName a) where
   hash = show >>> hash

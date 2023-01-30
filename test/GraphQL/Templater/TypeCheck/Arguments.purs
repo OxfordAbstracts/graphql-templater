@@ -5,7 +5,8 @@ import Prelude
 import Data.GraphQL.AST as AST
 import Data.List (List(..), (:))
 import Data.Maybe (Maybe(..))
-import GraphQL.Templater.Ast (Arg(..), ArgName(..), Value(..))
+import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..))
+import GraphQL.Templater.Ast.Argument.ToGqlValue (fromGqlValue)
 import GraphQL.Templater.TypeCheck.Arguments (typeCheckArguments)
 import GraphQL.Templater.TypeCheck.Errors (ArgTypeError(..), MismatchReason(..))
 import Test.Spec (Spec, describe, it)
@@ -136,5 +137,5 @@ typeCheck defs args =
     (Just $ AST.ArgumentsDefinition $ map AST.InputValueDefinition defs)
     (Just $ map toArg args)
   where
-  toArg :: AST.T_Argument -> Arg Unit
-  toArg { name, value } = Arg { name: ArgName name unit, value: Value value unit } unit
+  toArg :: AST.T_Argument -> Argument Unit
+  toArg { name, value } = Argument { name: ArgName name unit, value: fromGqlValue value, pos: unit } 
