@@ -39,7 +39,9 @@ spec = do
 
     roundTripSimple "object {{variable(arg: { k1: 1 })}}"
 
-    roundTripSimple "object unformatted {{variable(arg: {k1:1})}}"
+    roundTripSimple "object unformatted 1 {{variable(arg: {k1:1})}}"
+    
+    roundTripSimple "object unformatted 2 {{variable(arg: {  k1:  1  })}}"
 
     roundTripSimple "args on args {{chained(b: true).variable(arg1: 1, arg2: 2)}}"
 
