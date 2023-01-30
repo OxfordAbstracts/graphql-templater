@@ -6,6 +6,7 @@ import Data.Generic.Rep (class Generic)
 import Data.Hashable (class Hashable, hash)
 import Data.List (List)
 import Data.Maybe (Maybe(..))
+import Data.Newtype (class Newtype)
 import Data.Show.Generic (genericShow)
 import Data.Tuple (Tuple(..))
 
@@ -58,6 +59,8 @@ _IntValue =
 
 newtype IntValue = IntValue Int
 
+derive instance Newtype IntValue _
+
 derive instance Generic FloatValue _
 
 instance Show FloatValue where
@@ -81,6 +84,8 @@ _FloatValue =
     )
 
 newtype FloatValue = FloatValue Number
+
+derive instance Newtype FloatValue _
 
 derive instance Generic BooleanValue _
 
@@ -106,6 +111,8 @@ _BooleanValue =
 
 newtype BooleanValue = BooleanValue Boolean
 
+derive instance Newtype BooleanValue _
+
 derive instance Generic StringValue _
 
 instance Show StringValue where
@@ -129,6 +136,8 @@ _StringValue =
     )
 
 newtype StringValue = StringValue String
+
+derive instance Newtype StringValue _
 
 derive instance Generic NullValue _
 
@@ -178,6 +187,8 @@ _EnumValue =
 
 newtype EnumValue = EnumValue String
 
+derive instance Newtype EnumValue _
+
 derive instance Generic (ListValue a) _
 
 instance Show a => Show (ListValue a) where
@@ -202,6 +213,8 @@ _ListValue =
     )
 
 newtype ListValue a = ListValue (List (Value a))
+
+derive instance Newtype (ListValue a) _
 
 derive instance Functor ListValue
 
@@ -232,6 +245,8 @@ _ObjectValue =
 
 newtype ObjectValue a = ObjectValue (List (Argument a))
 
+derive instance Newtype (ObjectValue a) _
+
 derive instance Generic (Argument a) _
 
 derive instance Functor Argument
@@ -245,9 +260,9 @@ derive instance Ord a => Ord (Argument a)
 
 derive newtype instance (Show a, Hashable a) => Hashable (Argument a)
 
-type T_Argument a = { name :: String, value :: Value a, pos :: a }
+type T_Argument a = { name :: StringWith a, value :: Value a, pos :: a }
 
-newtype Argument :: Type -> Type
+derive instance Newtype (Argument a) _
 newtype Argument a = Argument (T_Argument a)
 
 derive instance Generic Variable _
@@ -260,3 +275,21 @@ derive instance Eq Variable
 derive instance Ord Variable
 
 newtype Variable = Variable String
+
+derive instance Newtype Variable _
+
+derive instance Generic (StringWith a) _
+
+instance Show a => Show (StringWith a) where
+  show v = genericShow v
+
+derive instance Eq a => Eq (StringWith a)
+
+derive instance Ord a => Ord (StringWith a)
+
+derive instance Functor StringWith
+
+data StringWith a = StringWith String a
+
+instance (Eq a, Show a) => Hashable (StringWith a) where
+  hash = show >>> hash
