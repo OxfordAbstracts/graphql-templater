@@ -1,4 +1,4 @@
-module GraphQL.Templater.TypeCheck
+module GraphQL.Templater.Ast.TypeCheck
   ( getTypeErrorsFromTree
   ) where
 
@@ -15,8 +15,8 @@ import Data.Maybe (Maybe(..))
 import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), VarPathPart(..), Args)
 import GraphQL.Templater.JsonPos (JsonPos(..), NormalizedJsonPos(..), normalizePos)
 import GraphQL.Templater.Positions (Positions)
-import GraphQL.Templater.TypeCheck.Arguments (typeCheckArguments)
-import GraphQL.Templater.TypeCheck.Errors (ArgTypeError, PositionedError, TypeError(..), TypeErrorWithPath(..))
+import GraphQL.Templater.Ast.TypeCheck.Arguments (typeCheckArguments)
+import GraphQL.Templater.Ast.TypeCheck.Errors (ArgTypeError, PositionedError, TypeError(..), TypeErrorWithPath(..))
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..))
 
 getTypeErrorsFromTree :: GqlTypeTree -> List AstPos -> List PositionedError

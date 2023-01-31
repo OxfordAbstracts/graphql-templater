@@ -1,4 +1,4 @@
-module GraphQL.Templater.TypeCheck.Errors where
+module GraphQL.Templater.Ast.TypeCheck.Errors where
 
 import Prelude
 

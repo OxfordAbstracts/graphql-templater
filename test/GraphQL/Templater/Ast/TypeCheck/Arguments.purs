@@ -1,4 +1,4 @@
-module Test.GraphQL.Templater.TypeCheck.Arguments (spec) where
+module Test.GraphQL.Templater.Ast.TypeCheck.Arguments (spec) where
 
 import Prelude
 
@@ -7,8 +7,8 @@ import Data.List (List(..), (:))
 import Data.Maybe (Maybe(..))
 import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..))
 import GraphQL.Templater.Ast.Argument.ToGqlValue (fromGqlValue)
-import GraphQL.Templater.TypeCheck.Arguments (typeCheckArguments)
-import GraphQL.Templater.TypeCheck.Errors (ArgTypeError(..), MismatchReason(..))
+import GraphQL.Templater.Ast.TypeCheck.Arguments (typeCheckArguments)
+import GraphQL.Templater.Ast.TypeCheck.Errors (ArgTypeError(..), MismatchReason(..))
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 

@@ -1,4 +1,4 @@
-module GraphQL.Templater.TypeCheck.Errors.Display where
+module GraphQL.Templater.Ast.TypeCheck.Errors.Display where
 
 import Prelude
 
@@ -10,7 +10,7 @@ import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Set as Set
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
 import GraphQL.Templater.LevenshteinDistance (closest)
-import GraphQL.Templater.TypeCheck.Errors (ArgTypeError(..), MismatchReason(..), TypeError(..), TypeErrorWithPath(..))
+import GraphQL.Templater.Ast.TypeCheck.Errors (ArgTypeError(..), MismatchReason(..), TypeError(..), TypeErrorWithPath(..))
 
 displayPositionedError :: forall a. TypeErrorWithPath a -> String
 displayPositionedError (TypeErrorWithPath typeError path _pos) = case typeError of

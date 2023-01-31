@@ -1,4 +1,4 @@
-module Test.GraphQL.Templater.TypeCheck (spec) where
+module Test.GraphQL.Templater.Ast.TypeCheck (spec) where
 
 import Prelude
 
@@ -11,8 +11,8 @@ import Data.Set as Set
 import Effect.Exception (Error, error)
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
 import GraphQL.Templater.Ast.Parser (parse)
-import GraphQL.Templater.TypeCheck (getTypeErrorsFromTree)
-import GraphQL.Templater.TypeCheck.Errors (ArgTypeError(..), PositionedError, TypeError(..), TypeErrorWithPath(..))
+import GraphQL.Templater.Ast.TypeCheck (getTypeErrorsFromTree)
+import GraphQL.Templater.Ast.TypeCheck.Errors (ArgTypeError(..), PositionedError, TypeError(..), TypeErrorWithPath(..))
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeTreeFromDoc)
 import Parsing (ParseError, Position(..), parseErrorMessage, runParser)
 import Test.Spec (Spec, describe, it)

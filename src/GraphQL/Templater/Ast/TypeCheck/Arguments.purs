@@ -1,4 +1,4 @@
-module GraphQL.Templater.TypeCheck.Arguments where
+module GraphQL.Templater.Ast.TypeCheck.Arguments where
 
 import Prelude
 
@@ -16,7 +16,7 @@ import GraphQL.Templater.Ast (Args)
 import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..))
 import GraphQL.Templater.Ast.Argument.Print (getValuePos)
 import GraphQL.Templater.Ast.Argument.ToGqlValue (toGqlValue)
-import GraphQL.Templater.TypeCheck.Errors (ArgTypeError(..), MismatchReason(..))
+import GraphQL.Templater.Ast.TypeCheck.Errors (ArgTypeError(..), MismatchReason(..))
 
 typeCheckArguments :: forall a. Maybe ArgumentsDefinition -> Maybe (Args a) -> List (ArgTypeError a)
 typeCheckArguments argsDef = go (maybe Nil unwrap argsDef) <<< fromMaybe Nil
