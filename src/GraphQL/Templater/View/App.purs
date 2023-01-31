@@ -28,7 +28,7 @@ import Foreign.Object as Object
 import GraphQL.Templater.Ast (AstPos)
 import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Ast.Print (printPositioned)
-import GraphQL.Templater.Ast.Transform (insertEmptyEachAt, insertTextAt)
+import GraphQL.Templater.Ast.Transform (insertEmptyEachAt)
 import GraphQL.Templater.Eval (EvalResult(..), eval)
 import GraphQL.Templater.Eval.MakeQuery (toGqlString)
 import GraphQL.Templater.GetSchema (getGqlDoc)
