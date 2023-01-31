@@ -11,7 +11,8 @@ import Data.String as String
 import Data.String.Utils (unsafeRepeat)
 import Data.Traversable (class Foldable, class Traversable, sequence)
 import Data.Tuple (Tuple(..), snd)
-import Parsing (Position(..))
+import GraphQL.Templater.Positions (Positions)
+import Parsing (Position(..), initialPos)
 
 displayPrintResult :: PrintResult Int -> String
 displayPrintResult result =
@@ -54,6 +55,12 @@ adjustPosition n (Position { index, column, line }) =
     , line
     }
 
+adjustPositions :: forall f. Functor f => Int -> f Positions -> f Positions
+adjustPositions n = map $ \({ start, end }) ->
+  { start: adjustPosition n start
+  , end: adjustPosition n end
+  }
+
 combine :: forall f k. Ord k => Foldable f => Traversable f => f (PrintResult k) -> (PrintResult k)
 combine results = do
   f <- sequence results
@@ -76,3 +83,9 @@ mapWithPrevious f = go Nothing
   go prev xs = case xs of
     Nil -> Nil
     Cons x xs' -> f prev x : go (Just x) xs'
+
+dummyPositions :: forall f a. Functor f => f a -> f Positions
+dummyPositions = map $ const { start: initialPos, end: initialPos }
+
+initalPositions :: Positions
+initalPositions = { start: initialPos, end: initialPos }

@@ -26,12 +26,12 @@ import Effect.Class.Console as Console
 import Effect.Exception (message)
 import Foreign.Object as Object
 import GraphQL.Templater.Ast (AstPos)
+import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Ast.Print (printPositioned)
-import GraphQL.Templater.Ast.Transform (insertTextAt)
+import GraphQL.Templater.Ast.Transform (insertEmptyEachAt, insertTextAt)
 import GraphQL.Templater.Eval (EvalResult(..), eval)
 import GraphQL.Templater.Eval.MakeQuery (toGqlString)
 import GraphQL.Templater.GetSchema (getGqlDoc)
-import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.TypeCheck (getTypeErrorsFromTree)
 import GraphQL.Templater.TypeCheck.Errors (TypeErrorWithPath(..))
 import GraphQL.Templater.TypeCheck.Errors.Display (displayPositionedError)
@@ -136,10 +136,13 @@ component =
                             case parse content of
                               Left err -> Console.error $ joinWith "\n" (parseErrorHuman content 64 err)
                               Right asts' ->
-                                case insertTextAt "each" applyInput.from asts' of
-                                  Just asts'' -> do
-                                    setContent (printPositioned asts'') view
-                                  _ -> Console.error $ "Failed to insert each at index " <> show applyInput.from
+                                let
+                                  path = "list"
+                                in
+                                  case insertEmptyEachAt path applyInput.from asts' of
+                                    Just asts'' -> do
+                                      setContent (printPositioned asts'') view
+                                    _ -> Console.error $ "Failed to insert each at index " <> show applyInput.from
                             pure unit
                         }
                       ]

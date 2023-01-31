@@ -1,6 +1,8 @@
 module GraphQL.Templater.Ast.Parser
   ( parse
   , varPartNameParser
+  , varPathParser
+  , varPathPartParser
   ) where
 
 import Prelude hiding (when)
@@ -72,7 +74,6 @@ astParser = oneOf
     pure $ With varPath asts
       { start: openStart, end: openEnd }
       { start: closeStart, end: closeEnd }
-
 
   textP = withPositions do
     chars <- try $ many1Till anyChar (lookAhead $ void (string openVar) <|> eof)

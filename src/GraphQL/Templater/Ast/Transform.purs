@@ -1,5 +1,5 @@
 module GraphQL.Templater.Ast.Transform
-  ( insertAstsAt
+  ( insertEmptyEachAt'
   , insertEmptyEachAt
   , insertTextAt
   , modifyTextAt
@@ -10,13 +10,13 @@ import Prelude
 import Data.Array as Array
 import Data.Foldable (foldl)
 import Data.List (List(..), reverse, (:))
+import Data.List.Types (NonEmptyList)
 import Data.Maybe (Maybe(..))
 import Data.String as String
 import Data.String.CodeUnits (toCharArray)
-import GraphQL.Templater.Ast (Ast(..), VarPath)
+import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..))
 import GraphQL.Templater.Ast.Print (printUnpositioned)
 import GraphQL.Templater.Positions (Positions)
-import GraphQL.Templater.Todo (todo)
 import Parsing (Position(..))
 
 insertTextAt
@@ -32,35 +32,21 @@ insertTextAt text idx = modifyTextAt go idx
     in
       Text (before <> text <> after) positions : Nil
 
-insertEmptyEachAt :: VarPath Positions -> Int -> List (Ast Positions) -> Maybe (List (Ast Positions))
-insertEmptyEachAt varPath idx = modifyTextAt go idx
-  where
-  go existing positions@{ start: Position start, end } =
-    let
-      textIdx = idx - start.index
-      { before, after } = String.splitAt textIdx existing
-    in
-      Text before positions
-        : Each varPath Nil
-            { start: addStringToPos before (Position start)
-            , end: addStringToPos before end
-            }
-            (todo "")
-        : Text after positions
-        : Nil
+insertEmptyEachAt :: String -> Int -> List (Ast Positions) -> Maybe (List (Ast Positions))
+insertEmptyEachAt field = insertEmptyEachAt'
+  ( pure $ VarPathPart
+      { args: Nothing
+      , name: VarPartNameGqlName field unit
+      }
+      unit
+  )
 
-insertAstsAt
-  :: List (Ast Positions)
-  -> Int
-  -> List (Ast Positions)
-  -> Maybe (List (Ast Positions))
-insertAstsAt asts idx = modifyTextAt go idx
-  where
-  go existing positions@{ start: Position start } =
-    let
-      { before, after } = String.splitAt (idx - start.index) existing
-    in
-      Text before positions : asts <> Text after positions : Nil
+insertEmptyEachAt' :: NonEmptyList (VarPathPart Unit) -> Int -> List (Ast Positions) -> Maybe (List (Ast Positions))
+insertEmptyEachAt' varPath = insertTextAt
+  ( printUnpositioned
+      $ pure
+      $ Each (VarPath varPath unit) Nil unit unit
+  )
 
 modifyTextAt
   :: (String -> Positions -> (List (Ast Positions)))
@@ -193,10 +179,3 @@ updateAstPositions { old, new } asts = asts <#> map
               }
           }
       | true -> positions
-
-addStringToPos :: String -> Position -> Position
-addStringToPos str (Position pos) = Position
-  { index: pos.index + String.length str
-  , line: pos.line + getNewlines str
-  , column: getColumn str
-  }

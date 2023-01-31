@@ -7,13 +7,14 @@ import Prelude
 import Control.Monad.Error.Class (class MonadThrow)
 import Data.Either (Either(..))
 import Data.List (List(..), foldMap, (:))
+import Data.List.Types (NonEmptyList)
 import Data.Maybe (Maybe(..))
 import Effect.Class (class MonadEffect)
 import Effect.Exception (Error)
-import GraphQL.Templater.Ast (Ast(..))
-import GraphQL.Templater.Ast.Print (printPositioned)
-import GraphQL.Templater.Ast.Transform (insertTextAt)
+import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPathPart(..))
 import GraphQL.Templater.Ast.Parser (parse)
+import GraphQL.Templater.Ast.Print (printPositioned)
+import GraphQL.Templater.Ast.Transform (insertEmptyEachAt, insertTextAt)
 import Parsing (Position(..))
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual)
@@ -123,9 +124,24 @@ spec = do
       it "should insert into an each with newlines" do
         parseAndTestInsertTextAt "a" 16 "\n{{#each list}}  \n{{/each}}\n" "\n{{#each list}} a \n{{/each}}\n"
 
+    describe "insertEmptyEachAt" do
+      it "should insert an empty each into a blank string" do
+        parseAndTestInsertEmptyEachAt
+          "list"
+          1
+          "  "
+          " {{#each list}}{{/each}} "
+
 parseAndTestInsertTextAt :: forall m. MonadEffect m => MonadThrow Error m => String -> Int -> String -> String -> m Unit
 parseAndTestInsertTextAt insert idx input expected =
   case parse input, parse expected of
     Right inputParsed, Right expectedParsed -> do
       foldMap printPositioned (insertTextAt insert idx inputParsed) `shouldEqual` printPositioned expectedParsed
+    _, _ -> fail "failed to parse"
+
+parseAndTestInsertEmptyEachAt :: forall m. MonadEffect m => MonadThrow Error m => String -> Int -> String -> String -> m Unit
+parseAndTestInsertEmptyEachAt insert idx input expected =
+  case parse input, parse expected of
+    Right inputParsed, Right expectedParsed -> do
+      foldMap printPositioned (insertEmptyEachAt insert idx inputParsed) `shouldEqual` printPositioned expectedParsed
     _, _ -> fail "failed to parse"

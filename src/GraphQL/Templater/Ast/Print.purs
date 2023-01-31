@@ -1,20 +1,20 @@
 module GraphQL.Templater.Ast.Print
-  ( printPositioned
+  ( printEach
+  , printMapVarPath
+  , printPositioned
   , printUnpositioned
+  , printWith
   ) where
 
 import Prelude
 
-import Control.Monad.State (evalState)
-import Data.List (List(..), fold, last, (:))
+import Data.List (List(..), last, (:))
 import Data.List.Types (toList)
-import Data.Map as Map
 import Data.Maybe (Maybe(..))
-import Data.Tuple (snd)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), Args)
 import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..))
 import GraphQL.Templater.Ast.Argument.Print (printValue)
-import GraphQL.Templater.Ast.PrintUtils (class PrintKey, PrintResult, adjustPosition, atEnd, atStart, combine, displayPositionedPrintResult, empty, mapWithPrevious)
+import GraphQL.Templater.Ast.PrintUtils (class PrintKey, PrintResult, adjustPosition, atEnd, atStart, combine, displayPositionedPrintResult, displayPrintResult, dummyPositions, empty, mapWithPrevious)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.Tokens (closeVar, eachClose, eachOpen, openVar, parent, root, withClose, withOpen)
 
@@ -24,15 +24,8 @@ printPositioned :: List (Ast Positions) -> String
 printPositioned = displayPositionedPrintResult <<< printMapTemplateAsts
 
 -- | Print an AST, discarding the original positions of the tokens.
-printUnpositioned :: List (Ast Positions) -> String
-printUnpositioned = displayPrintResult <<< printMapTemplateAsts
-
-displayPrintResult :: PrintResult Int -> String
-displayPrintResult result =
-  evalState result 0
-    # (Map.toUnfoldable :: _ -> List _)
-    <#> snd
-    # fold
+printUnpositioned :: forall a. List (Ast a) -> String
+printUnpositioned = displayPrintResult <<< printMapTemplateAsts <<< map dummyPositions
 
 printMapTemplateAsts :: forall k. PrintKey k => List (Ast Positions) -> PrintResult k
 printMapTemplateAsts asts = combine $ map printMapTemplateAst asts
@@ -45,25 +38,34 @@ printMapTemplateAst = case _ of
       , printMapVarPath varPath
       , atEnd end closeVar
       ]
-  Each varPath@(VarPath _ varPathPos) inner open close ->
-    combine
-      [ atStart open.start $ eachOpen
-      , printMapVarPath varPath
-      , atStart varPathPos.end closeVar
-      , printMapTemplateAsts inner
-      , atStart close.start eachClose
-      ]
-  With varPath@(VarPath _ varPathPos) inner open close ->
-    combine
-      [ atStart open.start withOpen
-      , printMapVarPath varPath
-      , atStart varPathPos.end closeVar
-      , printMapTemplateAsts inner
-      , atStart close.start withClose
-      ]
+  Each varPath inner open close ->
+    printEach varPath inner open close
+
+  With varPath inner open close ->
+    printWith varPath inner open close
 
   Text text { start } ->
     atStart start text
+
+printEach :: forall k. PrintKey k => VarPath Positions -> List (Ast Positions) -> Positions -> Positions -> PrintResult k
+printEach varPath@(VarPath _ varPathPos) inner open close =
+  combine
+    [ atStart open.start $ eachOpen
+    , printMapVarPath varPath
+    , atStart varPathPos.end closeVar
+    , printMapTemplateAsts inner
+    , atStart close.start eachClose
+    ]
+
+printWith :: forall k. PrintKey k => VarPath Positions -> List (Ast Positions) -> Positions -> Positions -> PrintResult k
+printWith varPath@(VarPath _ varPathPos) inner open close =
+  combine
+    [ atStart open.start withOpen
+    , printMapVarPath varPath
+    , atStart varPathPos.end closeVar
+    , printMapTemplateAsts inner
+    , atStart close.start withClose
+    ]
 
 printMapVarPath :: forall k. PrintKey k => VarPath Positions -> PrintResult k
 printMapVarPath (VarPath path _) = combine $ mapWithPrevious printMapVarPathPart (toList path)
