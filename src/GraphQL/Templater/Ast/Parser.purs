@@ -8,12 +8,13 @@ import Prelude hiding (when)
 import Data.Either (Either)
 import Data.Foldable (oneOf)
 import Data.GraphQL.Parser (listish)
-import GraphQL.Templater.Ast.Argument.Parser (argument, value)
 import Data.GraphQL.Parser as GqlParser
 import Data.List (List)
 import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), VarPathPart(..))
+import GraphQL.Templater.Ast.Argument.Parser (argument, value)
 import GraphQL.Templater.Ast.ParseUtils (toString, withPositions)
 import GraphQL.Templater.Positions (Positions)
+import GraphQL.Templater.Tokens (closeVar, eachClose, eachOpen, openVar, parent, root, withClose, withOpen)
 import Parsing (ParseError, Parser, position, runParser)
 import Parsing.Combinators (lookAhead, many1Till, manyTill, optionMaybe, sepBy1, try, (<|>))
 import Parsing.String (anyChar, char, eof, string)
@@ -33,51 +34,48 @@ astParser = oneOf
   ]
   where
   varP = withPositions do
-    _ <- string "{{"
+    _ <- string openVar
     skipSpaces
     varPath <- varPathParser
     skipSpaces
-    _ <- string "}}"
+    _ <- string closeVar
     pure $ Var varPath
 
   eachP = do
     openStart <- position
-    _ <- try $ string "{{#each"
+    _ <- try $ string eachOpen
     skipSpaces
     varPath <- varPathParser
     skipSpaces
-    _ <- string "}}"
+    _ <- string closeVar
     openEnd <- position
-    asts <- manyTill astParser (lookAhead $ string closeTag)
+    asts <- manyTill astParser (lookAhead $ string eachClose)
     closeStart <- position
-    _ <- string closeTag
+    _ <- string eachClose
     closeEnd <- position
     pure $ Each varPath asts
       { start: openStart, end: openEnd }
       { start: closeStart, end: closeEnd }
-    where
-    closeTag = "{{/each}}"
 
   withP = do
     openStart <- position
-    _ <- try $ string "{{#with"
+    _ <- try $ string withOpen
     skipSpaces
     varPath <- varPathParser
     skipSpaces
-    _ <- string "}}"
+    _ <- string closeVar
     openEnd <- position
-    asts <- manyTill astParser (lookAhead $ string "{{/with}}")
+    asts <- manyTill astParser (lookAhead $ string withClose)
     closeStart <- position
-    _ <- string closeTag
+    _ <- string withClose
     closeEnd <- position
     pure $ With varPath asts
       { start: openStart, end: openEnd }
       { start: closeStart, end: closeEnd }
-    where
-    closeTag = "{{/with}}"
+
 
   textP = withPositions do
-    chars <- try $ many1Till anyChar (lookAhead $ void (string "{{") <|> eof)
+    chars <- try $ many1Till anyChar (lookAhead $ void (string openVar) <|> eof)
     pure $ Text $ toString chars
 
 varPathParser :: Parser String (VarPath Positions)
@@ -93,7 +91,7 @@ varPathPartParser = withPositions do
 
 varPartNameParser :: Parser String (VarPartName Positions)
 varPartNameParser = withPositions $
-  (VarPartNameParent <$ string "*parent")
-    <|> (VarPartNameRoot <$ string "*root")
+  (VarPartNameParent <$ string parent)
+    <|> (VarPartNameRoot <$ string root)
     <|> (VarPartNameGqlName <$> GqlParser.name)
 

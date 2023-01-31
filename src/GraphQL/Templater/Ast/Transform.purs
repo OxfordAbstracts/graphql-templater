@@ -1,5 +1,6 @@
 module GraphQL.Templater.Ast.Transform
   ( insertAstsAt
+  , insertEmptyEachAt
   , insertTextAt
   , modifyTextAt
   ) where
@@ -15,6 +16,7 @@ import Data.String.CodeUnits (toCharArray)
 import GraphQL.Templater.Ast (Ast(..), VarPath)
 import GraphQL.Templater.Ast.Print (printUnpositioned)
 import GraphQL.Templater.Positions (Positions)
+import GraphQL.Templater.Todo (todo)
 import Parsing (Position(..))
 
 insertTextAt
@@ -30,20 +32,22 @@ insertTextAt text idx = modifyTextAt go idx
     in
       Text (before <> text <> after) positions : Nil
 
--- insertEmptyEachAt :: VarPath Positions -> Int -> List (Ast Positions) -> Maybe (List (Ast Positions))
--- insertEmptyEachAt varPath idx = modifyTextAt go idx
---   where 
---   go existing positions@{ start: Position start } =
---     let
---       textIdx = idx - start.index
---       { before, after } = String.splitAt textIdx existing
---     in
---       Text before positions 
---         : Each varPath Nil
---             ?d 
---             ?d 
---         : Text after positions 
---         : Nil
+insertEmptyEachAt :: VarPath Positions -> Int -> List (Ast Positions) -> Maybe (List (Ast Positions))
+insertEmptyEachAt varPath idx = modifyTextAt go idx
+  where
+  go existing positions@{ start: Position start, end } =
+    let
+      textIdx = idx - start.index
+      { before, after } = String.splitAt textIdx existing
+    in
+      Text before positions
+        : Each varPath Nil
+            { start: addStringToPos before (Position start)
+            , end: addStringToPos before end
+            }
+            (todo "")
+        : Text after positions
+        : Nil
 
 insertAstsAt
   :: List (Ast Positions)
@@ -189,3 +193,10 @@ updateAstPositions { old, new } asts = asts <#> map
               }
           }
       | true -> positions
+
+addStringToPos :: String -> Position -> Position
+addStringToPos str (Position pos) = Position
+  { index: pos.index + String.length str
+  , line: pos.line + getNewlines str
+  , column: getColumn str
+  }

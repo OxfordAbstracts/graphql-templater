@@ -13,9 +13,10 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (snd)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), Args)
 import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..))
-import GraphQL.Templater.Ast.Argument.Print (getValuePos, printValue)
+import GraphQL.Templater.Ast.Argument.Print (printValue)
 import GraphQL.Templater.Ast.PrintUtils (class PrintKey, PrintResult, adjustPosition, atEnd, atStart, combine, displayPositionedPrintResult, empty, mapWithPrevious)
 import GraphQL.Templater.Positions (Positions)
+import GraphQL.Templater.Tokens (closeVar, eachClose, eachOpen, openVar, parent, root, withClose, withOpen)
 
 -- | Print an AST, keeping the original positions of the tokens.
 -- | The asts must have the correct positions set.
@@ -40,25 +41,25 @@ printMapTemplateAst :: forall k. PrintKey k => Ast Positions -> PrintResult k
 printMapTemplateAst = case _ of
   Var varPath { start, end } ->
     combine
-      [ atStart start "{{"
+      [ atStart start openVar
       , printMapVarPath varPath
-      , atEnd end "}}"
+      , atEnd end closeVar
       ]
   Each varPath@(VarPath _ varPathPos) inner open close ->
     combine
-      [ atStart open.start "{{#each "
+      [ atStart open.start $ eachOpen
       , printMapVarPath varPath
-      , atStart varPathPos.end "}}"
+      , atStart varPathPos.end closeVar
       , printMapTemplateAsts inner
-      , atStart close.start "{{/each}}"
+      , atStart close.start eachClose
       ]
   With varPath@(VarPath _ varPathPos) inner open close ->
     combine
-      [ atStart open.start "{{#with "
+      [ atStart open.start withOpen
       , printMapVarPath varPath
-      , atStart varPathPos.end "}}"
+      , atStart varPathPos.end closeVar
       , printMapTemplateAsts inner
-      , atStart close.start "{{/with}}"
+      , atStart close.start withClose
       ]
 
   Text text { start } ->
@@ -85,9 +86,9 @@ printMapVarPartName = case _ of
   VarPartNameGqlName gqlName { start } ->
     atStart start gqlName
   VarPartNameParent { start } ->
-    atStart start "*parent"
+    atStart start parent
   VarPartNameRoot { start } ->
-    atStart start "*root"
+    atStart start root
 
 printMapArgs :: forall k. PrintKey k => Maybe (Args Positions) -> PrintResult k
 printMapArgs = case _ of
@@ -116,8 +117,6 @@ printMapArg prev (Argument { name, value }) =
     case prev of
       Nothing -> empty
       Just (Argument { pos: { end } }) -> atStart end ","
-
-  valuePos = getValuePos value
 
 printMapArgName :: forall k. PrintKey k => ArgName Positions -> PrintResult k
 printMapArgName (ArgName name { start, end }) = combine
