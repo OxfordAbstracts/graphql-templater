@@ -46,7 +46,6 @@ instance PrintKey Position where
 instance PrintKey Int where
   getKey _ = modify ((+) 1)
 
-
 adjustPosition :: Int -> Position -> Position
 adjustPosition n (Position { index, column, line }) =
   Position
@@ -54,7 +53,6 @@ adjustPosition n (Position { index, column, line }) =
     , column: column + n
     , line
     }
-
 
 combine :: forall f k. Ord k => Foldable f => Traversable f => f (PrintResult k) -> (PrintResult k)
 combine results = do
@@ -71,7 +69,6 @@ atStart pos str = do
 
 atEnd :: forall k. PrintKey k => Position -> String -> PrintResult k
 atEnd pos str = atStart (adjustPosition (-(String.length str)) pos) str
-
 
 mapWithPrevious :: forall a b. (Maybe a -> a -> b) -> List a -> List b
 mapWithPrevious f = go Nothing

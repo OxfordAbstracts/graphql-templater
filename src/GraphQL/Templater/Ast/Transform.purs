@@ -1,5 +1,6 @@
 module GraphQL.Templater.Ast.Transform
-  ( insertTextAt
+  ( insertAstsAt
+  , insertTextAt
   , modifyTextAt
   ) where
 
@@ -11,7 +12,7 @@ import Data.List (List(..), reverse, (:))
 import Data.Maybe (Maybe(..))
 import Data.String as String
 import Data.String.CodeUnits (toCharArray)
-import GraphQL.Templater.Ast (Ast(..))
+import GraphQL.Templater.Ast (Ast(..), VarPath)
 import GraphQL.Templater.Ast.Print (printUnpositioned)
 import GraphQL.Templater.Positions (Positions)
 import Parsing (Position(..))
@@ -28,6 +29,34 @@ insertTextAt text idx = modifyTextAt go idx
       { before, after } = String.splitAt (idx - start.index) existing
     in
       Text (before <> text <> after) positions : Nil
+
+-- insertEmptyEachAt :: VarPath Positions -> Int -> List (Ast Positions) -> Maybe (List (Ast Positions))
+-- insertEmptyEachAt varPath idx = modifyTextAt go idx
+--   where 
+--   go existing positions@{ start: Position start } =
+--     let
+--       textIdx = idx - start.index
+--       { before, after } = String.splitAt textIdx existing
+--     in
+--       Text before positions 
+--         : Each varPath Nil
+--             ?d 
+--             ?d 
+--         : Text after positions 
+--         : Nil
+
+insertAstsAt
+  :: List (Ast Positions)
+  -> Int
+  -> List (Ast Positions)
+  -> Maybe (List (Ast Positions))
+insertAstsAt asts idx = modifyTextAt go idx
+  where
+  go existing positions@{ start: Position start } =
+    let
+      { before, after } = String.splitAt (idx - start.index) existing
+    in
+      Text before positions : asts <> Text after positions : Nil
 
 modifyTextAt
   :: (String -> Positions -> (List (Ast Positions)))

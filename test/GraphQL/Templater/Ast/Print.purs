@@ -65,6 +65,10 @@ spec = do
       """{{#each items}}
       {{#each inner-items}}{{var.a(a: "b")}}{{/each}} some text {{/each}}
       {{#with obj }} other text
+      {{#each submissions(where: {event_id: {_eq: 112}})}}
+        id:{{id}}
+        title {{title.value(a: [1, 2, "a"])}}
+        {{/each}}
       {{*parent.var.a(a: "b").a.x}} {{/with}}
       """
 

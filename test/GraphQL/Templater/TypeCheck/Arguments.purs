@@ -138,4 +138,4 @@ typeCheck defs args =
     (Just $ map toArg args)
   where
   toArg :: AST.T_Argument -> Argument Unit
-  toArg { name, value } = Argument { name: ArgName name unit, value: fromGqlValue value, pos: unit } 
+  toArg { name, value } = Argument { name: ArgName name unit, value: fromGqlValue value, pos: unit }

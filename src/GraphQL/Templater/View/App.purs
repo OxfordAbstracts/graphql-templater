@@ -151,9 +151,9 @@ component =
       , if state.errors /= Nil then
           HH.div [ css "p-1 m-2 bg-red-200 text-red-800" ]
             [ HH.text "Errors:"
-            , HH.ul_ $ Array.fromFoldable state.errors <#> \{from, message} -> 
+            , HH.ul_ $ Array.fromFoldable state.errors <#> \{ from, message } ->
                 HH.li [ css "whitespace-pre-wrap border-2 rounded-md p-1 m-2" ]
-                  [ HH.text $ joinWith "\n"  $ parseErrorHuman state.template 64 $ ParseError message from ]
+                  [ HH.text $ joinWith "\n" $ parseErrorHuman state.template 64 $ ParseError message from ]
             ]
         else
           HH.text ""
