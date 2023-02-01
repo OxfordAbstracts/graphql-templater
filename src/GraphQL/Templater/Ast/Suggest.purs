@@ -4,25 +4,35 @@ import Prelude
 
 import Data.Lazy (force)
 import Data.List (List(..), mapMaybe, (:))
+import Data.List as List
+import Data.List.Types (NonEmptyList)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), maybe)
 import Data.Monoid (guard)
-import Data.Tuple (Tuple(..))
+import Data.Tuple (Tuple(..), fst, snd)
 import GraphQL.Templater.Ast (Ast(..), VarPath(..))
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..), normalizePos, varPathToPosition)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), TypeFieldValue, TypeMap, getTypeAtPath, getTypeMapFromTree)
 import Parsing (Position(..))
+import Record.Extra (mapRecord)
 
-suggestEaches :: Int -> List (Ast Positions) -> GqlTypeTree -> List String
-suggestEaches idx asts typeTree =
-  getTypeMapAt idx asts typeTree
-    # maybe Nil (Map.toUnfoldable >>> mapMaybe getEach)
+getStartingSuggestions
+  :: Int
+  -> List (Ast Positions)
+  -> GqlTypeTree
+  -> { eaches :: List String
+     , vars :: List String
+     }
+getStartingSuggestions idx asts typeTree = getTypeMapAt idx asts typeTree
+  # maybe mempty
+      ( map force >>> Map.toUnfoldable >>> List.partition isList >>> \{ yes, no } ->
+          { eaches: map fst yes
+          , vars: map fst no
+          }
+      )
   where
-  getEach :: Tuple String TypeFieldValue -> Maybe String
-  getEach (Tuple name value) = guard (isList (force value).returns) $ Just name
-
-  isList = case _ of
+  isList = snd >>> _.returns >>> case _ of
     ListType _ -> true
     _ -> false
 

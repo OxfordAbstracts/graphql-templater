@@ -9,7 +9,7 @@ import Data.List (List(..), (:))
 import Data.Maybe (Maybe(..))
 import Effect.Exception (Error, error)
 import GraphQL.Templater.Ast.Parser (parse)
-import GraphQL.Templater.Ast.Suggest (getPathAt, suggestEaches)
+import GraphQL.Templater.Ast.Suggest (getPathAt, getStartingSuggestions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
 import Parsing (ParseError, parseErrorMessage, runParser)
 import Test.Spec (Spec, describe, it)
@@ -53,30 +53,39 @@ spec = do
 
         ast <- throwParser $ parse template
         getPathAt 25 ast `shouldEqual` ("x" : "y" : Nil)
-    describe "suggestEaches" do
-      it "should return an empty list when there are no eaches in the schema" do
+    describe "getStartingSuggestions" do
+      it "should return a single var when that is all there is" do
         let
           template = "this is text"
 
         ast <- throwParser $ parse template
         tree <- parseTypeTree simpleSchema
-        suggestEaches 1 ast tree `shouldEqual` Nil
+        getStartingSuggestions 1 ast tree `shouldEqual`
+          { eaches: Nil
+          , vars: pure "foo"
+          }
 
-      it "should return top level eaches" do
+      it "should return top level eaches and vars" do
         let
           template = "this is text"
 
         ast <- throwParser $ parse template
         tree <- parseTypeTree usersSchema
-        suggestEaches 1 ast tree `shouldEqual` pure "users"
+        getStartingSuggestions 1 ast tree `shouldEqual`
+          { eaches: pure "users"
+          , vars: "top_level" : "user" : Nil
+          }
 
-      it "should return eaches inside eaches" do
+      it "should return eaches and vars inside eaches" do
         let
           template = "{{#each users}} this is text{{/each}}"
 
         ast <- throwParser $ parse template
         tree <- parseTypeTree usersSchema
-        suggestEaches 15 ast tree `shouldEqual` pure "friends"
+        getStartingSuggestions 15 ast tree `shouldEqual`
+          { eaches: pure "friends"
+          , vars: "id" : "name" : Nil
+          }
 
 parseTypeTree :: forall m. MonadThrow Error m => String -> m GqlTypeTree
 parseTypeTree schema = case runParser schema document of
