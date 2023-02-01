@@ -1,5 +1,5 @@
 import * as LZString from 'lz-string';
-// .compressToUTF16(string)
+
 export function compress(string) {
   return LZString.compressToUTF16(string);
 }

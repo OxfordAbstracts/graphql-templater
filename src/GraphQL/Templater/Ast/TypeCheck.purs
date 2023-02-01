@@ -1,6 +1,9 @@
 module GraphQL.Templater.Ast.TypeCheck
-  ( getTypeErrorsFromTree
-  ) where
+  ( PosAndArgs
+  , getTypeErrorsFromTree
+  , varPathToPosAndArgs
+  )
+  where
 
 import Prelude
 

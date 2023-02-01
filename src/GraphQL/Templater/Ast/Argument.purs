@@ -2,17 +2,21 @@ module GraphQL.Templater.Ast.Argument where
 
 import Prelude
 
+import Data.Foldable (class Foldable)
 import Data.Generic.Rep (class Generic)
 import Data.Hashable (class Hashable, hash)
 import Data.List (List)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Data.Show.Generic (genericShow)
+import Data.Traversable (class Traversable)
 import Data.Tuple (Tuple(..))
 
 derive instance Generic (Value a) _
 
 derive instance Functor Value
+derive instance Foldable Value
+derive instance Traversable Value
 
 instance Show a => Show (Value a) where
   show v = genericShow v
@@ -217,10 +221,14 @@ newtype ListValue a = ListValue (List (Value a))
 derive instance Newtype (ListValue a) _
 
 derive instance Functor ListValue
+derive instance Foldable ListValue
+derive instance Traversable ListValue
 
 derive instance Generic (ObjectValue a) _
 
 derive instance Functor ObjectValue
+derive instance Foldable ObjectValue
+derive instance Traversable ObjectValue
 
 instance Show a => Show (ObjectValue a) where
   show v = genericShow v
@@ -250,6 +258,8 @@ derive instance Newtype (ObjectValue a) _
 derive instance Generic (Argument a) _
 
 derive instance Functor Argument
+derive instance Foldable Argument
+derive instance Traversable Argument
 
 instance Show a => Show (Argument a) where
   show v = genericShow v
@@ -288,6 +298,8 @@ derive instance Eq a => Eq (ArgName a)
 derive instance Ord a => Ord (ArgName a)
 
 derive instance Functor ArgName
+derive instance Foldable ArgName
+derive instance Traversable ArgName
 
 data ArgName a = ArgName String a
 

@@ -6,14 +6,18 @@ module GraphQL.Templater.Ast
   , VarPartName(..)
   , VarPath(..)
   , VarPathPart(..)
-  ) where
+  , getPos
+  )
+  where
 
 import Prelude
 
+import Data.Foldable (class Foldable)
 import Data.Generic.Rep (class Generic)
 import Data.List.Types (List, NonEmptyList)
-import Data.Maybe (Maybe)
+import Data.Maybe (Maybe(..))
 import Data.Show.Generic (genericShow)
+import Data.Traversable (class Traversable)
 import GraphQL.Templater.Ast.Argument (Argument)
 import GraphQL.Templater.Positions (Positions)
 
@@ -21,6 +25,8 @@ newtype Asts a = Asts (List (Ast a))
 
 derive instance Generic (Asts a) _
 derive instance Functor Asts
+derive instance Foldable Asts
+derive instance Traversable Asts
 derive instance Eq a => Eq (Asts a)
 derive instance Ord a => Ord (Asts a)
 instance Show a => Show (Asts a) where
@@ -32,10 +38,19 @@ data Ast a
   | With (VarPath a) (List (Ast a)) a a
   | Text String a
 
+getPos :: forall a. Ast a -> { open :: a, close :: Maybe a }
+getPos = case _ of
+  Var _ open -> { open, close: Nothing }
+  Each _ _ open close -> { open, close: Just close }
+  With _ _ open close -> { open, close: Just close }
+  Text _ open -> { open, close: Nothing }
+
 type AstPos = Ast Positions
 
 derive instance Generic (Ast a) _
 derive instance Functor Ast
+derive instance Foldable Ast
+derive instance Traversable Ast
 derive instance Eq a => Eq (Ast a)
 derive instance Ord a => Ord (Ast a)
 instance Show a => Show (Ast a) where
@@ -44,6 +59,8 @@ instance Show a => Show (Ast a) where
 data VarPath a = VarPath (NonEmptyList (VarPathPart a)) a
 
 derive instance Functor VarPath
+derive instance Foldable VarPath
+derive instance Traversable VarPath
 derive instance Eq a => Eq (VarPath a)
 derive instance Ord a => Ord (VarPath a)
 instance Show a => Show (VarPath a) where
@@ -58,6 +75,8 @@ data VarPathPart a = VarPathPart
   a
 
 derive instance Functor VarPathPart
+derive instance Foldable VarPathPart
+derive instance Traversable VarPathPart
 derive instance Eq a => Eq (VarPathPart a)
 derive instance Ord a => Ord (VarPathPart a)
 derive instance Generic (VarPathPart a) _
@@ -70,6 +89,8 @@ data VarPartName a
   | VarPartNameRoot a
 
 derive instance Functor VarPartName
+derive instance Foldable VarPartName
+derive instance Traversable VarPartName
 derive instance Eq a => Eq (VarPartName a)
 derive instance Ord a => Ord (VarPartName a)
 instance Show a => Show (VarPartName a) where

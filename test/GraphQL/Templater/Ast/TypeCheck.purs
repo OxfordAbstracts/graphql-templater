@@ -20,7 +20,7 @@ import Test.Spec.Assertions (shouldEqual)
 
 spec :: Spec Unit
 spec = do
-  describe "GraphQL.Templater.TypeDefs" do
+  describe "GraphQL.Templater.Ast.TypeCheck" do
     describe "getTypeErrorsFromTree" do
       it "should return no errors for a simple valid schema and an empty template" do
         let
