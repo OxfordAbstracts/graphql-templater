@@ -32,6 +32,7 @@ type TypeMap = Map String TypeFieldValue
 type TypeFieldValue = Lazy
   { args :: Maybe ArgumentsDefinition
   , returns :: GqlTypeTree
+  , description :: Maybe String
   }
 
 data GqlTypeTree
@@ -90,6 +91,7 @@ getTypeTreeFromDefinitions roots defs = force <$>
      . { fieldsDefinition :: Maybe AST.FieldsDefinition
        , implementsInterfaces :: Maybe AST.ImplementsInterfaces
        , name :: String
+       , description :: Maybe String
        | r
        }
     -> TypeMap
@@ -103,12 +105,15 @@ getTypeTreeFromDefinitions roots defs = force <$>
     :: forall r
      . { inputFieldsDefinition :: Maybe AST.InputFieldsDefinition
        , name :: String
+       , description :: Maybe String
        | r
        }
     -> TypeMap
   getInputObjectTypeMap { inputFieldsDefinition } =
     Map.fromFoldable $ maybe Nil unwrap inputFieldsDefinition <#> unwrap
-      >>> Record.merge { argumentsDefinition: Nothing }
+      >>> Record.merge
+        { argumentsDefinition: Nothing
+        }
       >>> fieldToTreePair
 
   getUnionTypeMap :: List AST.NamedType -> TypeMap
@@ -119,11 +124,12 @@ getTypeTreeFromDefinitions roots defs = force <$>
      . { name :: String
        , argumentsDefinition :: Maybe ArgumentsDefinition
        , type :: AST.Type
+       , description :: Maybe String
        | r
        }
     -> Tuple String TypeFieldValue
-  fieldToTreePair { argumentsDefinition, name, type: tipe } =
-    Tuple name $ defer \_ -> { args: argumentsDefinition, returns: fromAstType tipe }
+  fieldToTreePair { argumentsDefinition, name, description, type: tipe } =
+    Tuple name $ defer \_ -> { args: argumentsDefinition, description, returns: fromAstType tipe }
 
   fromAstType :: AST.Type -> GqlTypeTree
   fromAstType = case _ of
