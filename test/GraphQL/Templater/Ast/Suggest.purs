@@ -1,4 +1,4 @@
-module Test.GraphQL.Templater.Ast.Suggest (spec) where
+module Test.GraphQL.Templater.Ast.Hint (spec) where
 
 import Prelude
 
@@ -9,7 +9,7 @@ import Data.List (List(..), (:))
 import Data.Maybe (Maybe(..))
 import Effect.Exception (Error, error)
 import GraphQL.Templater.Ast.Parser (parse)
-import GraphQL.Templater.Ast.Suggest (getPathAt, getStartingSuggestions)
+import GraphQL.Templater.Ast.Hint (getPathAt, getStartingHints)
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
 import Parsing (ParseError, parseErrorMessage, runParser)
 import Test.Spec (Spec, describe, it)
@@ -17,7 +17,7 @@ import Test.Spec.Assertions (shouldEqual)
 
 spec :: Spec Unit
 spec = do
-  describe "GraphQL.Templater.Ast.Suggest" do
+  describe "GraphQL.Templater.Ast.Hint" do
     describe "getPathAt" do
       it "should return an empty path when text only" do
         let
@@ -53,14 +53,14 @@ spec = do
 
         ast <- throwParser $ parse template
         getPathAt 25 ast `shouldEqual` ("x" : "y" : Nil)
-    describe "getStartingSuggestions" do
+    describe "getStartingHints" do
       it "should return a single var when that is all there is" do
         let
           template = "this is text"
 
         ast <- throwParser $ parse template
         tree <- parseTypeTree simpleSchema
-        getStartingSuggestions 1 ast tree `shouldEqual`
+        getStartingHints 1 ast tree `shouldEqual`
           { eaches: Nil
           , vars: pure "foo"
           }
@@ -71,7 +71,7 @@ spec = do
 
         ast <- throwParser $ parse template
         tree <- parseTypeTree usersSchema
-        getStartingSuggestions 1 ast tree `shouldEqual`
+        getStartingHints 1 ast tree `shouldEqual`
           { eaches: pure "users"
           , vars: "top_level" : "user" : Nil
           }
@@ -82,7 +82,7 @@ spec = do
 
         ast <- throwParser $ parse template
         tree <- parseTypeTree usersSchema
-        getStartingSuggestions 15 ast tree `shouldEqual`
+        getStartingHints 15 ast tree `shouldEqual`
           { eaches: pure "friends"
           , vars: "id" : "name" : Nil
           }
