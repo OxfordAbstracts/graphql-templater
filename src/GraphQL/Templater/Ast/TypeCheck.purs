@@ -2,8 +2,7 @@ module GraphQL.Templater.Ast.TypeCheck
   ( PosAndArgs
   , getTypeErrorsFromTree
   , varPathToPosAndArgs
-  )
-  where
+  ) where
 
 import Prelude
 
