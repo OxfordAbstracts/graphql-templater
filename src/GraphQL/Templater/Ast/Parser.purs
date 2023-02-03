@@ -18,7 +18,7 @@ import GraphQL.Templater.Ast.ParseUtils (toString, withPositions)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.Tokens (closeVar, eachClose, eachOpen, openVar, parent, root, withClose, withOpen)
 import Parsing (ParseError, Parser, position, runParser)
-import Parsing.Combinators (lookAhead, many1Till, manyTill, optionMaybe, sepBy1, try, (<|>))
+import Parsing.Combinators (lookAhead, many1Till, manyTill, optionMaybe, sepBy1, sepEndBy1, try, (<|>))
 import Parsing.String (anyChar, char, eof, string)
 import Parsing.String.Basic (skipSpaces)
 
@@ -80,7 +80,7 @@ astParser = oneOf
     pure $ Text $ toString chars
 
 varPathParser :: Parser String (VarPath Positions)
-varPathParser = withPositions $ VarPath <$> sepBy1 varPathPartParser (char '.')
+varPathParser = withPositions $ VarPath <$> sepEndBy1 varPathPartParser (char '.')
 
 varPathPartParser :: Parser String (VarPathPart Positions)
 varPathPartParser = withPositions do
