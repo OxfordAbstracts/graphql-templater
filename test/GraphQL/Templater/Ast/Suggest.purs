@@ -1,4 +1,4 @@
-module Test.GraphQL.Templater.Ast.Hint (spec) where
+module Test.GraphQL.TemplaterAst.Suggest (spec) where
 
 import Prelude
 
@@ -9,7 +9,7 @@ import Data.List (List(..), (:))
 import Data.Maybe (Maybe(..))
 import Effect.Exception (Error, error)
 import GraphQL.Templater.Ast.Parser (parse)
-import GraphQL.Templater.Ast.Hint (getPathAt, getStartingHints)
+import GraphQL.TemplaterAst.Suggest (getPathAt, getStartingHints)
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
 import Parsing (ParseError, parseErrorMessage, runParser)
 import Test.Spec (Spec, describe, it)
@@ -17,7 +17,7 @@ import Test.Spec.Assertions (shouldEqual)
 
 spec :: Spec Unit
 spec = do
-  describe "GraphQL.Templater.Ast.Hint" do
+  describe "GraphQL.TemplaterAst.Suggest" do
     describe "getPathAt" do
       it "should return an empty path when text only" do
         let

@@ -32,6 +32,12 @@ spec = do
         parseWoPos "{{a.b}}" `shouldEqual` Right
           ( pure $ mkVarNested $ "a" `nelCons` pure "b"
           )
+
+      it "should parse nested variables with a trailing dot" do
+        parseWoPos "{{a.b.}}" `shouldEqual` Right
+          ( pure $ mkVarNested $ "a" `nelCons` pure "b"
+          )
+
       it "should parse nested variables with arguments" do
         parseWoPos "{{a(arg1: 1, arg2: \"x\").b(x: true)}}" `shouldEqual` Right
           ( pure $ Var

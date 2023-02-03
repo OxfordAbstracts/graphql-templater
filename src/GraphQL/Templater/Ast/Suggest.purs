@@ -1,4 +1,4 @@
-module GraphQL.Templater.Ast.Hint where
+module GraphQL.TemplaterAst.Suggest where
 
 import Prelude
 
