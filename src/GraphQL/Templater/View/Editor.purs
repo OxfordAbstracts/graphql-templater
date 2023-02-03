@@ -56,6 +56,7 @@ type State =
 
 data Action
   = Init
+  | Receive Input
   | HandleChange ViewUpdate
 
 data Output = DocChanged ViewUpdate
@@ -69,6 +70,7 @@ component =
         { handleAction = handleAction
         , handleQuery = handleQuery
         , initialize = Just Init
+        , receive = Just <<< Receive
         }
     }
   where
@@ -96,6 +98,16 @@ component =
         H.modify_ _
           { view = Just view
           }
+
+    Receive input -> do
+      viewMb <- H.gets _.view
+      case viewMb of
+        Nothing -> pure unit
+        Just view ->
+          H.liftEffect $ reloadAutocompleteImpl
+            { view
+            , autocomplete: toNullable $ completionSourceToForeign <$> input.autocompletion
+            }
 
     HandleChange viewUpdate -> H.raise $ DocChanged viewUpdate
 
@@ -143,6 +155,12 @@ relint lint view = liftEffect $ relintImpl { view, lint: toForeignDiagnostic <$>
 foreign import relintImpl
   :: { view :: EditorView
      , lint :: Array DiagnosticForeign
+     }
+  -> Effect Unit
+
+foreign import reloadAutocompleteImpl
+  :: { view :: EditorView
+     , autocomplete :: Nullable CompletionSourceForeign
      }
   -> Effect Unit
 

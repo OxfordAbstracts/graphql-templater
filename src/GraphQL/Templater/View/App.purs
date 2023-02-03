@@ -9,35 +9,32 @@ import Data.Array (mapMaybe)
 import Data.Array as Array
 import Data.DateTime.Instant (Instant)
 import Data.Either (Either(..), either, hush)
-import Data.Foldable (intercalate)
+import Data.Foldable (fold, intercalate)
 import Data.GraphQL.AST.Print (printAst)
 import Data.List (List(..))
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), joinWith, split)
 import Data.String as String
-import Data.String.Regex.Flags (noFlags)
-import Data.String.Regex.Unsafe (unsafeRegex)
 import Data.Time.Duration (Milliseconds(..))
-import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
 import Effect.Aff.Class (class MonadAff)
-import Effect.Class.Console as Console
 import Effect.Exception (message)
+import Effect.Ref (Ref)
+import Effect.Ref as Ref
 import Foreign.Object as Object
 import GraphQL.Templater.Ast (AstPos)
 import GraphQL.Templater.Ast.Parser (parse)
-import GraphQL.Templater.Ast.Print (printPositioned)
-import GraphQL.Templater.Ast.Transform (insertEmptyEachAt)
-import GraphQL.Templater.Eval (EvalResult(..), eval)
-import GraphQL.Templater.Eval.MakeQuery (toGqlString)
-import GraphQL.Templater.GetSchema (getGqlDoc)
 import GraphQL.Templater.Ast.TypeCheck (getTypeErrorsFromTree)
 import GraphQL.Templater.Ast.TypeCheck.Errors (TypeErrorWithPath(..))
 import GraphQL.Templater.Ast.TypeCheck.Errors.Display (displayPositionedError)
 import GraphQL.Templater.Ast.TypeCheck.Errors.GetPositions (getPositions)
+import GraphQL.Templater.Eval (EvalResult(..), eval)
+import GraphQL.Templater.Eval.MakeQuery (toGqlString)
+import GraphQL.Templater.GetSchema (getGqlDoc)
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
-import GraphQL.Templater.View.Editor (ViewUpdate, Diagnostic, getViewContent, getViewUpdateContent, matchBefore, setContent)
+import GraphQL.Templater.View.Autocomplete (AutocompleteState, autocompletion)
+import GraphQL.Templater.View.Editor (Diagnostic, ViewUpdate, getViewUpdateContent)
 import GraphQL.Templater.View.Editor as Editor
 import Halogen (ClassName(..), liftEffect)
 import Halogen as H
@@ -67,6 +64,7 @@ type State =
   , schemaTypeTree :: Maybe GqlTypeTree
   , fullQueryCache :: Map.Map String Json
   , mostRecentEval :: Maybe Instant
+  , autocompleteState :: Maybe (Ref (Maybe AutocompleteState))
   }
 
 type TemplaterError =
@@ -99,6 +97,7 @@ component =
     , schemaTypeTree: Nothing
     , fullQueryCache: Map.empty
     , mostRecentEval: Nothing
+    , autocompleteState: Nothing
     }
 
   render :: State -> _
@@ -119,34 +118,8 @@ component =
           ]
       , HH.slot (Proxy :: Proxy "Editor") unit Editor.component
           { doc: initialQuery
-          , lint: [] -- state.errorDiagnostics
-          , autocompletion: Just \ctx -> do
-              matchBrackets <- matchBefore (unsafeRegex """\{\{\w*""" noFlags) ctx
-              for matchBrackets \{ from } -> do
-                pure
-                  { filter: false
-                  , from
-                  , options:
-                      [ { label: "each"
-                        , detail: Just "loop over a list"
-                        , info: Nothing
-                        , type: Just "keyword"
-                        , apply: Just \applyInput@{ view } -> do
-                            content <- getViewContent view
-                            case parse content of
-                              Left err -> Console.error $ joinWith "\n" (parseErrorHuman content 64 err)
-                              Right asts' ->
-                                let
-                                  path = "list"
-                                in
-                                  case insertEmptyEachAt path applyInput.from asts' of
-                                    Just asts'' -> do
-                                      setContent (printPositioned asts'') view
-                                    _ -> Console.error $ "Failed to insert each at index " <> show applyInput.from
-                            pure unit
-                        }
-                      ]
-                  }
+          , lint: []
+          , autocompletion: Just $ autocompletion state.autocompleteState state.ast state.schemaTypeTree
           }
           case _ of
             Editor.DocChanged viewUpdate -> SetTemplate viewUpdate
@@ -190,7 +163,10 @@ component =
     asts = fromMaybe (Nil) state.ast
 
   handleAction = case _ of
-    Init -> loadSchema
+    Init -> do
+      autocompleteState <- liftEffect $ Ref.new Nothing
+      H.modify_ _ { autocompleteState = Just autocompleteState }
+      loadSchema
     SetUrl url -> do
       H.modify_ _ { url = url }
       loadSchema

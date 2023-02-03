@@ -8,10 +8,12 @@ import Data.GraphQL.Parser (document)
 import Data.List (List(..), (:))
 import Data.Maybe (Maybe(..))
 import Effect.Exception (Error, error)
+import GraphQL.Templater.Ast (AstPos)
 import GraphQL.Templater.Ast.Parser (parse)
-import GraphQL.TemplaterAst.Suggest (getPathAt, getStartingHints)
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
+import GraphQL.TemplaterAst.Suggest (getPathAt, getStartingSuggestions)
 import Parsing (ParseError, parseErrorMessage, runParser)
+import Record.Extra (mapRecord)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -53,14 +55,14 @@ spec = do
 
         ast <- throwParser $ parse template
         getPathAt 25 ast `shouldEqual` ("x" : "y" : Nil)
-    describe "getStartingHints" do
+    describe "getStartingSuggestions" do
       it "should return a single var when that is all there is" do
         let
           template = "this is text"
 
         ast <- throwParser $ parse template
         tree <- parseTypeTree simpleSchema
-        getStartingHints 1 ast tree `shouldEqual`
+        getStartingSuggestions' 1 ast tree `shouldEqual`
           { eaches: Nil
           , vars: pure "foo"
           }
@@ -71,7 +73,7 @@ spec = do
 
         ast <- throwParser $ parse template
         tree <- parseTypeTree usersSchema
-        getStartingHints 1 ast tree `shouldEqual`
+        getStartingSuggestions' 1 ast tree `shouldEqual`
           { eaches: pure "users"
           , vars: "top_level" : "user" : Nil
           }
@@ -82,10 +84,19 @@ spec = do
 
         ast <- throwParser $ parse template
         tree <- parseTypeTree usersSchema
-        getStartingHints 15 ast tree `shouldEqual`
+        getStartingSuggestions' 15 ast tree `shouldEqual`
           { eaches: pure "friends"
           , vars: "id" : "name" : Nil
           }
+
+getStartingSuggestions'
+  :: Int
+  -> List AstPos
+  -> GqlTypeTree
+  -> { eaches :: List String
+     , vars :: List String
+     }
+getStartingSuggestions' idx ast tree = getStartingSuggestions idx ast tree # mapRecord (map _.field)
 
 parseTypeTree :: forall m. MonadThrow Error m => String -> m GqlTypeTree
 parseTypeTree schema = case runParser schema document of

@@ -8,30 +8,33 @@ import Data.List as List
 import Data.Map as Map
 import Data.Maybe (Maybe(..), maybe)
 import Data.Tuple (fst, snd)
+import Data.Tuple.Nested ((/\))
 import GraphQL.Templater.Ast (Ast(..), VarPath(..))
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..), normalizePos, varPathToPosition)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), TypeMap, getTypeAtPath, getTypeMapFromTree)
 import Parsing (Position(..))
 
-getStartingHints
+getStartingSuggestions
   :: Int
   -> List (Ast Positions)
   -> GqlTypeTree
-  -> { eaches :: List String
-     , vars :: List String
+  -> { eaches :: List { field :: String, description :: Maybe String }
+     , vars :: List { field :: String, description :: Maybe String }
      }
-getStartingHints idx asts typeTree = getTypeMapAt idx asts typeTree
+getStartingSuggestions idx asts typeTree = getTypeMapAt idx asts typeTree
   # maybe mempty
       ( map force >>> Map.toUnfoldable >>> List.partition isList >>> \{ yes, no } ->
-          { eaches: map fst yes
-          , vars: map fst no
+          { eaches: map getSuggestion yes
+          , vars: map getSuggestion no
           }
       )
   where
   isList = snd >>> _.returns >>> case _ of
     ListType _ -> true
     _ -> false
+
+  getSuggestion (field /\ {description}) = {field, description} 
 
 getTypeMapAt :: Int -> List (Ast Positions) -> GqlTypeTree -> Maybe TypeMap
 getTypeMapAt idx asts typeTree = getTypeMapFromTree =<< getTypeAtPath keyPath typeTree

@@ -5,6 +5,7 @@ import * as lang from "@codemirror/language";
 import { autocompletion } from "@codemirror/autocomplete";
 
 let linting = new Compartment();
+let autocompleteCompartment = new Compartment();
 
 export const makeView =
   ({ parent, doc, onChange, lint, autocomplete }) =>
@@ -22,15 +23,17 @@ export const makeView =
             return lint;
           })
         ),
-        autocomplete
-          ? autocompletion({
-              override: [
-                (ctx) => {
-                  return autocomplete(ctx)();
-                },
-              ],
-            })
-          : [],
+        autocompleteCompartment.of(
+          autocomplete
+            ? autocompletion({
+                override: [
+                  (ctx) => {
+                    return autocomplete(ctx)();
+                  },
+                ],
+              })
+            : []
+        ),
       ],
       parent,
       doc,
@@ -60,6 +63,24 @@ export const relintImpl =
         linter((view) => {
           return lint;
         })
+      ),
+    });
+  };
+
+export const reloadAutocompleteImpl =
+  ({ view, autocomplete }) =>
+  () => {
+    view.dispatch({
+      effects: autocompleteCompartment.reconfigure(
+        autocomplete
+          ? autocompletion({
+              override: [
+                (ctx) => {
+                  return autocomplete(ctx)();
+                },
+              ],
+            })
+          : []
       ),
     });
   };
