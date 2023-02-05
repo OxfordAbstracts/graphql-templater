@@ -4,25 +4,21 @@ import Prelude
 
 import Data.Array (uncons)
 import Data.Array as Array
-import Data.Either (Either(..))
 import Data.List (List)
 import Data.Maybe (Maybe(..))
-import Data.String (joinWith)
 import Data.String.Regex (Regex)
 import Data.String.Regex.Flags (noFlags)
 import Data.String.Regex.Unsafe (unsafeRegex)
-import Debug (traceM)
+import Debug (spy, spyWith, traceM)
 import Effect.Class (class MonadEffect)
 import Effect.Class.Console as Console
 import Effect.Ref (Ref)
 import GraphQL.Templater.Ast (AstPos)
-import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Ast.Print (printPositioned)
 import GraphQL.Templater.Ast.Transform (insertEmptyEachAt, insertVarAt)
 import GraphQL.Templater.TypeDefs (GqlTypeTree)
-import GraphQL.Templater.View.Editor (CompletionContext, CompletionResult, Match, getViewContent, matchBefore, setContent)
+import GraphQL.Templater.View.Editor (CompletionContext, CompletionResult, Match, matchBefore, setContent)
 import GraphQL.TemplaterAst.Suggest (getStartingSuggestions)
-import Parsing.String (parseErrorHuman)
 
 data AutocompleteState
   = InVar
@@ -70,8 +66,8 @@ autocompletion stRef astsMb typeTreeMb ctx = firstMatch
   getVars { from } = do
     case astsMb, typeTreeMb of
       Just asts, Just typeTree -> do
-        let { vars } = getStartingSuggestions from asts typeTree
-        traceM {vars}
+        let { vars } = getStartingSuggestions (spy "from" from) (spyWith "template" printPositioned asts) typeTree
+        traceM { vars }
         pure $ Just
           { filter: false
           , from
@@ -83,7 +79,7 @@ autocompletion stRef astsMb typeTreeMb ctx = firstMatch
               , apply: Just \applyInput@{ view } ->
                   case insertVarAt field applyInput.from asts of
                     Just asts' -> setContent (printPositioned asts') view
-                    _ -> pure unit
+                    _ -> Console.error $ "Failed to insert var at index " <> show applyInput.from
               }
           }
       _, _ -> pure Nothing
