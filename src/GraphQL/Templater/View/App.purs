@@ -7,9 +7,10 @@ import Control.Monad.Error.Class (try)
 import Data.Argonaut.Core (Json)
 import Data.Array (mapMaybe)
 import Data.Array as Array
+import Data.Array.NonEmpty as NonEmpty
 import Data.DateTime.Instant (Instant)
 import Data.Either (Either(..), either, hush)
-import Data.Foldable (fold, intercalate)
+import Data.Foldable (intercalate)
 import Data.GraphQL.AST.Print (printAst)
 import Data.List (List(..))
 import Data.Map as Map
@@ -23,7 +24,7 @@ import Effect.Exception (message)
 import Effect.Ref (Ref)
 import Effect.Ref as Ref
 import Foreign.Object as Object
-import GraphQL.Templater.Ast (AstPos)
+import GraphQL.Templater.Ast (Ast(..), AstPos)
 import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Ast.TypeCheck (getTypeErrorsFromTree)
 import GraphQL.Templater.Ast.TypeCheck.Errors (TypeErrorWithPath(..))
@@ -34,14 +35,16 @@ import GraphQL.Templater.Eval.MakeQuery (toGqlString)
 import GraphQL.Templater.GetSchema (getGqlDoc)
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
 import GraphQL.Templater.View.Autocomplete (AutocompleteState, autocompletion)
-import GraphQL.Templater.View.Editor (Diagnostic, ViewUpdate, getViewUpdateContent)
+import GraphQL.Templater.View.Editor (Diagnostic, ViewUpdate, getViewUpdateContent, getViewUpdateSelectionRanges)
 import GraphQL.Templater.View.Editor as Editor
-import Halogen (ClassName(..), liftEffect)
+import GraphQL.Templater.View.Html.NestedDropdown (nestedDropdown)
+import GraphQL.Templater.View.Html.NestedDropdown as NestedDropdown
+import GraphQL.Templater.View.Html.Utils (css)
+import GraphQL.TemplaterAst.Suggest (getAstAt)
+import Halogen (liftEffect)
 import Halogen as H
-import Halogen.HTML (IProp)
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Halogen.HTML.Properties (class_)
 import Halogen.HTML.Properties as HP
 import Parsing (ParseError(..), Position(..))
 import Parsing.String (parseErrorHuman)
@@ -52,6 +55,7 @@ data Action
   | SetUrl String
   | SetHeaders String
   | SetTemplate ViewUpdate
+  | SetCursorPosition ViewUpdate
 
 type State =
   { url :: String
@@ -65,6 +69,7 @@ type State =
   , fullQueryCache :: Map.Map String Json
   , mostRecentEval :: Maybe Instant
   , autocompleteState :: Maybe (Ref (Maybe AutocompleteState))
+  , cursorPosition :: Maybe Int
   }
 
 type TemplaterError =
@@ -98,6 +103,7 @@ component =
     , fullQueryCache: Map.empty
     , mostRecentEval: Nothing
     , autocompleteState: Nothing
+    , cursorPosition: Nothing
     }
 
   render :: State -> _
@@ -116,13 +122,56 @@ component =
           , HE.onValueInput SetHeaders
           , css "font-mono border-2 rounded-md p-1 m-2 h-12 whitespace-pre-wrap"
           ]
-      , HH.slot (Proxy :: Proxy "Editor") unit Editor.component
-          { doc: initialQuery
-          , lint: []
-          , autocompletion: Just $ autocompletion state.autocompleteState state.ast state.schemaTypeTree
-          }
-          case _ of
-            Editor.DocChanged viewUpdate -> SetTemplate viewUpdate
+      , HH.div [ css "flex" ]
+          [ HH.div
+              [ css "w-[16rem] m-2 p-2 rounded-md border border-gray-400"
+              ]
+              $
+                [ HH.slot_ (Proxy :: _ "Test dropdown") unit nestedDropdown
+                    { label: "test dropdown"
+                    , items:
+                        [ NestedDropdown.Node { label: "test 1", id: "test 1" } 
+                        , NestedDropdown.Node { label: "test 2", id: "test 2" }
+                        , NestedDropdown.Parent 
+                            { label: "test 3"
+                            , id: "test 3"
+                            , selectable: true
+                            , children: pure
+                                [ NestedDropdown.Node { label: "test 3.1", id: "test 3.1" }
+                                , NestedDropdown.Node { label: "test 3.2", id: "test 3.2" }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+                  <>
+                    case state.cursorPosition, state.ast of
+                      Just position, Just ast ->
+                        case getAstAt position ast of
+                          Nothing -> [ HH.text $ "Error. Nothing found at position " <> show position <> "." ]
+                          Just selectedAst ->
+                            case selectedAst of
+                              Text txt _ ->
+                                [ HH.text "'"
+                                ]
+                              _ -> [ HH.text "'" ]
+
+                      _, _ ->
+                        [ HH.text "Click to on the editor to insert or edit merge fields"
+                        ]
+
+          , HH.div
+              []
+              [ HH.slot (Proxy :: Proxy "Editor") unit Editor.component
+                  { doc: initialQuery
+                  , lint: []
+                  , autocompletion: Just $ autocompletion state.autocompleteState state.ast state.schemaTypeTree
+                  }
+                  case _ of
+                    Editor.DocChanged viewUpdate -> SetTemplate viewUpdate
+                    Editor.SelectionChanged viewUpdate -> SetCursorPosition viewUpdate
+              ]
+          ]
 
       , if state.errors /= Nil then
           HH.div [ css "p-1 m-2 bg-red-200 text-red-800" ]
@@ -165,15 +214,45 @@ component =
   handleAction = case _ of
     Init -> do
       autocompleteState <- liftEffect $ Ref.new Nothing
-      H.modify_ _ { autocompleteState = Just autocompleteState }
+      st <- H.modify _ { autocompleteState = Just autocompleteState }
       loadSchema
+      putParsedTemplate st.template
     SetUrl url -> do
       H.modify_ _ { url = url }
       loadSchema
     SetHeaders headers -> do
       H.modify_ _ { headers = headers }
+    SetCursorPosition viewUpdate -> setCursorPosition viewUpdate
     SetTemplate viewUpdate -> do
+      setCursorPosition viewUpdate
       template <- liftEffect $ getViewUpdateContent viewUpdate
+      putParsedTemplate template
+
+    where
+    setCursorPosition viewUpdate = do
+      ranges <- liftEffect $ getViewUpdateSelectionRanges viewUpdate
+      H.modify_ _ { cursorPosition = Just (NonEmpty.head ranges).from }
+    loadSchema = do
+      st <- H.get
+      doc <- H.liftAff $ try $ getGqlDoc st.url $ Object.fromFoldable
+        $ st.headers
+            # split (Pattern "\n")
+            # mapMaybe \str -> case split (Pattern ":") str of
+                [ key, value ] -> Just $ Tuple key value
+                _ -> Nothing
+
+      H.modify_ _
+        { printedSchema = Just $ either
+            ( \err ->
+                "Failed to load schema: " <> message err
+            )
+            printAst
+            doc
+        , schemaTypeTree = getTypeTreeFromDoc =<< hush doc
+        }
+
+    putParsedTemplate template = do
+
       { url, headers, schemaTypeTree } <- H.modify _ { template = template }
       let
 
@@ -234,40 +313,11 @@ component =
               }
             EvalSuccess resultStr -> H.modify_ _ { result = resultStr, ast = Just ast }
 
-    where
-    loadSchema = do
-      st <- H.get
-      doc <- H.liftAff $ try $ getGqlDoc st.url $ Object.fromFoldable
-        $ st.headers
-            # split (Pattern "\n")
-            # mapMaybe \str -> case split (Pattern ":") str of
-                [ key, value ] -> Just $ Tuple key value
-                _ -> Nothing
-      H.modify_ _
-        { printedSchema = Just $ either
-            ( \err ->
-                "Failed to load schema: " <> message err
-            )
-            printAst
-            doc
-        , schemaTypeTree = getTypeTreeFromDoc =<< hush doc
-        }
-
   resultLabel = H.RefLabel "result"
 
 _editor = Proxy :: Proxy "Editor"
 
 -- where 
-
-css
-  :: forall r a
-   . String
-  -> IProp
-       ( class :: String
-       | r
-       )
-       a
-css = class_ <<< ClassName
 
 foreign import initialUrl :: String
 foreign import initialHeaders :: String

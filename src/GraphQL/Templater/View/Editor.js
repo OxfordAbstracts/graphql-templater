@@ -8,7 +8,7 @@ let linting = new Compartment();
 let autocompleteCompartment = new Compartment();
 
 export const makeView =
-  ({ parent, doc, onChange, lint, autocomplete }) =>
+  ({ parent, doc, onChange, onSelectionSet, lint, autocomplete }) =>
   () => {
     return new EditorView({
       extensions: [
@@ -16,6 +16,9 @@ export const makeView =
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onChange(update)();
+          }
+          if(update.selectionSet){
+            onSelectionSet(update)();
           }
         }),
         linting.of(
@@ -53,6 +56,10 @@ export const setContent = (content) => (view) => () => {
 
 export const getViewUpdateContent = (viewUpdate) => () => {
   return viewUpdate.state.doc.toString();
+};
+
+export const getViewUpdateSelectionRanges = (viewUpdate) => () => {
+  return viewUpdate.state.selection.ranges;
 };
 
 export const relintImpl =

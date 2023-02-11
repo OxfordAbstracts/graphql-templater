@@ -15,13 +15,16 @@ module GraphQL.Templater.View.Editor
   , explicit
   , getViewContent
   , getViewUpdateContent
+  , getViewUpdateSelectionRanges
   , matchBefore
   , setContent
-  ) where
+  )
+  where
 
 import Prelude
 
 import Control.Promise (Promise, fromAff)
+import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Foldable (for_)
 import Data.Function.Uncurried (Fn4, mkFn4)
 import Data.Maybe (Maybe(..))
@@ -58,8 +61,11 @@ data Action
   = Init
   | Receive Input
   | HandleChange ViewUpdate
+  | HandleSelectionSet ViewUpdate
 
-data Output = DocChanged ViewUpdate
+data Output
+  = DocChanged ViewUpdate
+  | SelectionChanged ViewUpdate
 
 component :: forall m. MonadAff m => H.Component Query Input Output m
 component =
@@ -86,12 +92,15 @@ component =
       { input: input@{ doc, lint } } <- H.get
       elMb <- H.getRef label
       for_ elMb \parent -> do
-        { emitter, listener } <- H.liftEffect HS.create
-        void $ H.subscribe emitter
+        handleChange <- H.liftEffect HS.create
+        onSelectionSet <- H.liftEffect HS.create
+        void $ H.subscribe handleChange.emitter
+        void $ H.subscribe onSelectionSet.emitter
         view <- liftEffect $ makeView
           { parent
           , doc
-          , onChange: HS.notify listener <<< HandleChange
+          , onChange: HS.notify handleChange.listener <<< HandleChange
+          , onSelectionSet: HS.notify onSelectionSet.listener <<< HandleSelectionSet
           , lint: toForeignDiagnostic <$> lint
           , autocomplete: toNullable $ completionSourceToForeign <$> input.autocompletion
           }
@@ -110,6 +119,7 @@ component =
             }
 
     HandleChange viewUpdate -> H.raise $ DocChanged viewUpdate
+    HandleSelectionSet viewUpdate -> H.raise $ SelectionChanged viewUpdate
 
   handleQuery
     :: forall a
@@ -138,6 +148,7 @@ foreign import makeView
   :: { parent :: Element
      , doc :: String
      , onChange :: ViewUpdate -> Effect Unit
+     , onSelectionSet :: ViewUpdate -> Effect Unit
      , lint :: Array DiagnosticForeign
      , autocomplete :: Nullable CompletionSourceForeign
      }
@@ -148,6 +159,8 @@ foreign import getViewContent :: EditorView -> Effect String
 foreign import setContent :: String -> EditorView -> Effect Unit
 
 foreign import getViewUpdateContent :: ViewUpdate -> Effect String
+
+foreign import getViewUpdateSelectionRanges :: ViewUpdate -> Effect (NonEmptyArray { from :: Int, to :: Int })
 
 relint :: forall m. MonadEffect m => Array Diagnostic -> EditorView -> m Unit
 relint lint view = liftEffect $ relintImpl { view, lint: toForeignDiagnostic <$> lint }

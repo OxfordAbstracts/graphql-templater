@@ -9,7 +9,7 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), maybe)
 import Data.Tuple (snd)
 import Data.Tuple.Nested ((/\))
-import GraphQL.Templater.Ast (Ast(..), VarPath(..))
+import GraphQL.Templater.Ast (Ast(..), VarPath(..), getPos)
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..), normalizePos, varPathToPosition)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), TypeMap, getTypeAtPath, getTypeMapFromTree)
@@ -69,19 +69,51 @@ getJsonPosPathAt = map normalizePos <<< go Nil
     Nil -> path
     head : tail -> case head of
       Each (VarPath varPath _) inner open close
-        | isWithin open close ->
+        | isWithin idx open close ->
             go (varPathToPosition varPath <> path) idx inner
       With (VarPath varPath _) inner open close
-        | isWithin open close ->
+        | isWithin idx open close ->
             go (varPathToPosition varPath <> path) idx inner
       _ -> go path idx tail
-    where
 
-    isWithin open close = (idx >= getEndIdx open)
-      && (idx <= getStartIdx close)
+getAstAt :: Int -> List (Ast Positions) -> Maybe (Ast Positions)
+getAstAt idx = case _ of
+  Nil -> Nothing
+  head : tail ->
+    if isAtIdx idx head then
+      Just head
+    else case head of
+      Each _ inner open close
+        | isWithin idx open close -> getAstAt idx inner
+      With _ inner open close
+        | isWithin idx open close -> getAstAt idx inner
+      _ -> getAstAt idx tail
 
-  getStartIdx :: Positions -> Int
-  getStartIdx { start: Position { index } } = index
+isAtIdx :: Int -> Ast Positions -> Boolean
+isAtIdx idx = case _ of
+  Each _ _ open close ->
+    (idx >= getStartIdx open && idx <= getEndIdx open)
+      || (idx >= getStartIdx close && idx <= getEndIdx close)
+  With _ _ open close ->
+    (idx >= getStartIdx open && idx <= getEndIdx open)
+      || (idx >= getStartIdx close && idx <= getEndIdx close)
+  Var _ pos -> idx >= getStartIdx pos && idx <= getEndIdx pos
+  Text _ pos -> idx >= getStartIdx pos && idx <= getEndIdx pos
 
-  getEndIdx :: Positions -> Int
-  getEndIdx { end: Position { index } } = index
+isWithin
+  :: Int
+  -> { end :: Position
+     , start :: Position
+     }
+  -> { end :: Position
+     , start :: Position
+     }
+  -> Boolean
+isWithin idx open close = (idx >= getEndIdx open)
+  && (idx <= getStartIdx close)
+
+getStartIdx :: Positions -> Int
+getStartIdx { start: Position { index } } = index
+
+getEndIdx :: Positions -> Int
+getEndIdx { end: Position { index } } = index
