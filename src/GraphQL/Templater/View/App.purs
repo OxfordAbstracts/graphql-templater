@@ -4,17 +4,14 @@ import Prelude
 
 import Affjax.RequestHeader (RequestHeader(..))
 import Control.Monad.Error.Class (try)
-import Data.Argonaut.Core (Json)
 import Data.Array (mapMaybe)
 import Data.Array as Array
 import Data.Array.NonEmpty (toUnfoldable1)
 import Data.Array.NonEmpty as NonEmpty
 import Data.Array.NonEmpty as NonEmptyArray
-import Data.DateTime.Instant (Instant)
 import Data.Either (Either(..), either, hush)
 import Data.Foldable (intercalate)
 import Data.GraphQL.AST.Print (printAst)
-import Data.Lazy (force)
 import Data.List (List(..))
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
@@ -22,14 +19,12 @@ import Data.String (Pattern(..), joinWith, split)
 import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
-import Data.Tuple.Nested ((/\))
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class.Console as Console
 import Effect.Exception (message)
-import Effect.Ref (Ref)
 import Effect.Ref as Ref
 import Foreign.Object as Object
-import GraphQL.Templater.Ast (Ast(..), AstPos)
+import GraphQL.Templater.Ast (AstPos)
 import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Ast.Print (printPositioned)
 import GraphQL.Templater.Ast.Transform (insertEachOfPathAt, insertVarPathAt, insertWithOfPathAt)
@@ -40,15 +35,13 @@ import GraphQL.Templater.Ast.TypeCheck.Errors.GetPositions (getPositions)
 import GraphQL.Templater.Eval (EvalResult(..), eval)
 import GraphQL.Templater.Eval.MakeQuery (toGqlString)
 import GraphQL.Templater.GetSchema (getGqlDoc)
-import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeMapFromTree, getTypeTreeFromDoc)
-import GraphQL.Templater.View.Autocomplete (AutocompleteState)
-import GraphQL.Templater.View.Component.Editor (Diagnostic, ViewUpdate, getViewUpdateContent, getViewUpdateSelectionRanges)
+import GraphQL.Templater.TypeDefs (getTypeTreeFromDoc)
+import GraphQL.Templater.View.App.Gui (gui)
+import GraphQL.Templater.View.App.Types (Action(..), State, TemplaterError)
+import GraphQL.Templater.View.Component.Editor (Diagnostic, getViewUpdateContent, getViewUpdateSelectionRanges)
 import GraphQL.Templater.View.Component.Editor as Editor
-import GraphQL.Templater.View.Component.NestedDropdown (nestedDropdown)
-import GraphQL.Templater.View.Component.NestedDropdown as NestedDropdown
 import GraphQL.Templater.View.Html.Utils (css)
-import GraphQL.TemplaterAst.Suggest (getAstAt, getTypeMapAt)
-import Halogen (defer, liftEffect)
+import Halogen (liftEffect)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
@@ -56,37 +49,6 @@ import Halogen.HTML.Properties as HP
 import Parsing (ParseError(..), Position(..))
 import Parsing.String (parseErrorHuman)
 import Type.Proxy (Proxy(..))
-
-data Action
-  = Init
-  | SetUrl String
-  | SetHeaders String
-  | SetTemplate ViewUpdate
-  | SetCursorPosition ViewUpdate
-  | InsertVariable (Array String)
-  | InsertEach (Array String)
-  | InsertWith (Array String)
-
-type State =
-  { url :: String
-  , headers :: String
-  , template :: String
-  , ast :: List AstPos
-  , errors :: List TemplaterError
-  , result :: String
-  , printedSchema :: Maybe String
-  , schemaTypeTree :: Maybe GqlTypeTree
-  , fullQueryCache :: Map.Map String Json
-  , mostRecentEval :: Maybe Instant
-  , autocompleteState :: Maybe (Ref (Maybe AutocompleteState))
-  , cursorPosition :: Maybe Int
-  }
-
-type TemplaterError =
-  { message :: String
-  , from :: Position
-  , to :: Maybe Position
-  }
 
 component :: forall output m q input. MonadAff m => H.Component q input output m
 component =
@@ -133,133 +95,7 @@ component =
           , css "font-mono border-2 rounded-md p-1 m-2 h-12 whitespace-pre-wrap"
           ]
       , HH.div [ css "flex" ]
-          [ HH.div
-              [ css "w-[16rem] m-2 p-2 rounded-md border border-gray-400"
-              ]
-              $
-                case state.schemaTypeTree of
-                  Just typeTree ->
-                    let
-                      position = fromMaybe (String.length state.template) state.cursorPosition
-                    in
-                      case getAstAt position asts of
-                        Nothing -> [ HH.text $ "Error. Nothing found at position " <> show position <> "." ]
-                        Just selectedAst ->
-                          case selectedAst of
-                            Text txt _ ->
-                              [ HH.slot (Proxy :: _ "insert_variable") unit nestedDropdown
-                                  { label: "Insert variable"
-                                  , items: defer \_ ->
-                                      let
-                                        getDropdownsFromTypeMap tm = Map.toUnfoldable tm
-                                          <#> \(name /\ type_) ->
-                                            let
-                                              { returns } = force type_
-                                            in
-                                              case getTypeMapFromTree returns of
-                                                Just tm' -> NestedDropdown.Parent
-                                                  { label: name
-                                                  , id: name
-                                                  , selectable: false
-                                                  , children: defer \_ -> getDropdownsFromTypeMap tm'
-                                                  }
-                                                _ ->
-                                                  NestedDropdown.Node
-                                                    { id: name
-                                                    , label: name
-                                                    }
-
-                                      in
-                                        getTypeMapAt position asts typeTree
-                                          # fromMaybe Map.empty
-                                          # getDropdownsFromTypeMap
-                                  }
-                                  InsertVariable
-                              , HH.slot (Proxy :: _ "insert_each") unit nestedDropdown
-                                  { label: "Insert each"
-                                  , items: defer \_ ->
-                                      let
-                                        getDropdownsFromTypeMap tm = Map.toUnfoldable tm
-                                          >>= \(name /\ type_) ->
-                                            let
-                                              { returns } = force type_
-
-                                              isList = isList' returns 
-                                              
-                                              isList' t = case t of
-                                                ListType _ -> true
-                                                NonNull t' -> isList' t'
-                                                _ -> false
-                                            in
-                                              case getTypeMapFromTree returns of
-                                                Just tm' -> pure
-                                                  $ NestedDropdown.Parent
-                                                      { label: name
-                                                      , id: name
-                                                      , selectable: isList
-                                                      , children: defer \_ -> getDropdownsFromTypeMap tm'
-                                                      }
-
-                                                _ ->
-                                                  if isList then pure $
-                                                    NestedDropdown.Node
-                                                      { id: name
-                                                      , label: name
-                                                      }
-                                                  else []
-
-                                      in
-                                        getTypeMapAt position asts typeTree
-                                          # fromMaybe Map.empty
-                                          # getDropdownsFromTypeMap
-                                  }
-                                  InsertEach
-                              , HH.slot (Proxy :: _ "insert_with") unit nestedDropdown
-                                  { label: "Insert with"
-                                  , items: defer \_ ->
-                                      let
-                                        getDropdownsFromTypeMap tm = Map.toUnfoldable tm
-                                          >>= \(name /\ type_) ->
-                                            let
-                                              { returns } = force type_
-
-                                              isObject = isObject' returns 
-                                              
-                                              isObject' t = case t of
-                                                ObjectType _ -> true
-                                                NonNull t' -> isObject' t'
-                                                _ -> false
-                                            in
-                                              case getTypeMapFromTree returns of
-                                                Just tm' -> pure
-                                                  $ NestedDropdown.Parent
-                                                      { label: name
-                                                      , id: name
-                                                      , selectable: isObject
-                                                      , children: defer \_ -> getDropdownsFromTypeMap tm'
-                                                      }
-
-                                                _ ->
-                                                  if isObject then pure $
-                                                    NestedDropdown.Node
-                                                      { id: name
-                                                      , label: name
-                                                      }
-                                                  else []
-
-                                      in
-                                        getTypeMapAt position asts typeTree
-                                          # fromMaybe Map.empty
-                                          # getDropdownsFromTypeMap
-                                  }
-                                  InsertWith
-                              ]
-                            found -> [ HH.text $ "Not in text: " <> show found ]
-
-                  _ ->
-                    [
-                    ]
-
+          [ gui state
           , HH.div
               []
               [ HH.slot (Proxy :: Proxy "Editor") unit Editor.component
@@ -327,38 +163,21 @@ component =
       setCursorPosition viewUpdate
       template <- liftEffect $ getViewUpdateContent viewUpdate
       handleNewTemplate template
-    InsertVariable path ->
-      do
-        { cursorPosition, template, ast } <- H.get
-        case NonEmptyArray.fromArray path of
-          Nothing -> pure unit
-          Just path' -> do
-            let newAstMb = insertVarPathAt (toUnfoldable1 path') (fromMaybe (String.length template) cursorPosition) ast
-            case newAstMb of
-              Nothing -> Console.error $ "Failed to insert variable of path " <> show path <> " at position " <> show cursorPosition <> "."
-              Just newAst -> handleNewAst newAst
-    InsertEach path ->
-      do
-        { cursorPosition, template, ast } <- H.get
-        case NonEmptyArray.fromArray path of
-          Nothing -> pure unit
-          Just path' -> do
-            let newAstMb = insertEachOfPathAt (toUnfoldable1 path') (fromMaybe (String.length template) cursorPosition) ast
-            case newAstMb of
-              Nothing -> Console.error $ "Failed to insert each of path " <> show path <> " at position " <> show cursorPosition <> "."
-              Just newAst -> handleNewAst newAst
-    InsertWith path ->
-      do
-        { cursorPosition, template, ast } <- H.get
-        case NonEmptyArray.fromArray path of
-          Nothing -> pure unit
-          Just path' -> do
-            let newAstMb = insertWithOfPathAt (toUnfoldable1 path') (fromMaybe (String.length template) cursorPosition) ast
-            case newAstMb of
-              Nothing -> Console.error $ "Failed to insert with of path " <> show path <> " at position " <> show cursorPosition <> "."
-              Just newAst -> handleNewAst newAst
+    InsertVariable path -> updateAtPath insertVarPathAt path
+    InsertEach path -> updateAtPath insertEachOfPathAt path
+    InsertWith path -> updateAtPath insertWithOfPathAt path
 
     where
+    updateAtPath fn path = do
+      { cursorPosition, template, ast } <- H.get
+      case NonEmptyArray.fromArray path of
+        Nothing -> pure unit
+        Just path' -> do
+          let newAstMb = fn (toUnfoldable1 path') (fromMaybe (String.length template) cursorPosition) ast
+          case newAstMb of
+            Nothing -> Console.error $ "Failed update with path " <> show path <> " at position " <> show cursorPosition <> "."
+            Just newAst -> handleNewAst newAst
+
     setCursorPosition viewUpdate = do
       ranges <- liftEffect $ getViewUpdateSelectionRanges viewUpdate
       H.modify_ _ { cursorPosition = Just (NonEmpty.head ranges).from }
