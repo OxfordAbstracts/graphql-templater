@@ -1,11 +1,13 @@
 module GraphQL.Templater.Ast.Transform
   ( insertEmptyEachAt
   , insertEmptyEachAt'
+  , insertSingleVarAt
   , insertTextAt
-  , insertVarAt
   , insertVarAt'
+  , insertVarPathAt
   , modifyTextAt
-  ) where
+  )
+  where
 
 import Prelude
 
@@ -50,9 +52,18 @@ insertEmptyEachAt' varPath = insertTextAt
       $ Each (VarPath varPath unit) Nil unit unit
   )
 
-insertVarAt :: String -> Int -> List (Ast Positions) -> Maybe (List (Ast Positions))
-insertVarAt field = insertVarAt'
+insertSingleVarAt :: String -> Int -> List (Ast Positions) -> Maybe (List (Ast Positions))
+insertSingleVarAt field = insertVarAt'
   ( pure $ VarPathPart
+      { args: Nothing
+      , name: VarPartNameGqlName field unit
+      }
+      unit
+  )
+
+insertVarPathAt :: NonEmptyList String -> Int -> List (Ast Positions) -> Maybe (List (Ast Positions))
+insertVarPathAt path = insertVarAt'
+  ( path <#> \field -> VarPathPart
       { args: Nothing
       , name: VarPartNameGqlName field unit
       }

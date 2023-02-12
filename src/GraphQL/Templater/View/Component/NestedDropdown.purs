@@ -201,7 +201,7 @@ nestedDropdown =
   handleAction = case _ of
     Init -> pure unit
 
-    Receive input ->
+    Receive _input ->
       pure unit
 
     ToggleOpen -> H.modify_ \st ->
@@ -214,7 +214,12 @@ nestedDropdown =
       liftEffect $ stopPropagation $ MouseEvent.toEvent ev
       H.modify_ _ { path = path }
 
-    Select path -> H.raise path
+    Select path -> do
+      H.modify_ _
+        { open = false
+        , searches = Map.empty :: Map (Array id) String
+        }
+      H.raise path
 
     SetSearch ids search ->
       H.modify_ \st -> st

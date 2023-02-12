@@ -49,6 +49,7 @@ type Input =
 
 data Query a
   = GetContent (Maybe String -> a)
+  | SetContent String a
   | Relint (Array Diagnostic) a
 
 type State =
@@ -132,6 +133,12 @@ component =
         Just view -> do
           content <- liftEffect $ getViewContent view
           pure $ Just $ reply $ Just content
+
+    SetContent content reply -> do
+      { view: viewMb } <- H.get
+      for_ viewMb \view -> do
+        liftEffect $ setContent content view
+      pure $ Just reply
 
     Relint lint reply -> do
       { view } <- H.get

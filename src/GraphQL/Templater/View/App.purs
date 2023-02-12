@@ -7,13 +7,16 @@ import Control.Monad.Error.Class (try)
 import Data.Argonaut.Core (Json)
 import Data.Array (mapMaybe)
 import Data.Array as Array
+import Data.Array.NonEmpty (NonEmptyArray, toUnfoldable1)
 import Data.Array.NonEmpty as NonEmpty
+import Data.Array.NonEmpty as NonEmptyArray
 import Data.DateTime.Instant (Instant)
 import Data.Either (Either(..), either, hush)
 import Data.Foldable (intercalate)
 import Data.GraphQL.AST.Print (printAst)
 import Data.Lazy (force)
 import Data.List (List(..))
+import Data.List.Types (NonEmptyList)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), joinWith, split)
@@ -23,12 +26,15 @@ import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
 import Debug (spy)
 import Effect.Aff.Class (class MonadAff)
+import Effect.Class.Console as Console
 import Effect.Exception (message)
 import Effect.Ref (Ref)
 import Effect.Ref as Ref
 import Foreign.Object as Object
 import GraphQL.Templater.Ast (Ast(..), AstPos)
 import GraphQL.Templater.Ast.Parser (parse)
+import GraphQL.Templater.Ast.Print (printPositioned)
+import GraphQL.Templater.Ast.Transform (insertVarPathAt)
 import GraphQL.Templater.Ast.TypeCheck (getTypeErrorsFromTree)
 import GraphQL.Templater.Ast.TypeCheck.Errors (TypeErrorWithPath(..))
 import GraphQL.Templater.Ast.TypeCheck.Errors.Display (displayPositionedError)
@@ -59,12 +65,13 @@ data Action
   | SetHeaders String
   | SetTemplate ViewUpdate
   | SetCursorPosition ViewUpdate
+  | InsertVariable (Array String)
 
 type State =
   { url :: String
   , headers :: String
   , template :: String
-  , ast :: Maybe (List AstPos)
+  , ast :: List AstPos
   , errors :: List TemplaterError
   , result :: String
   , printedSchema :: Maybe String
@@ -98,7 +105,7 @@ component =
     { url: initialUrl
     , headers: initialHeaders
     , template: initialQuery
-    , ast: Nothing
+    , ast: Nil
     , result: ""
     , errors: Nil
     , printedSchema: Nothing
@@ -130,17 +137,17 @@ component =
               [ css "w-[16rem] m-2 p-2 rounded-md border border-gray-400"
               ]
               $
-                case state.ast, state.schemaTypeTree of
-                  Just ast, Just typeTree ->
+                case state.schemaTypeTree of
+                  Just typeTree ->
                     let
                       position = fromMaybe (String.length state.template) state.cursorPosition
                     in
-                      case getAstAt position ast of
+                      case getAstAt position asts of
                         Nothing -> [ HH.text $ "Error. Nothing found at position " <> show position <> "." ]
                         Just selectedAst ->
                           case selectedAst of
                             Text txt _ ->
-                              [ HH.slot_ (Proxy :: _ "insert_variable") unit nestedDropdown
+                              [ HH.slot (Proxy :: _ "insert_variable") unit nestedDropdown
                                   { label: "Insert variable"
                                   , items: defer \_ ->
                                       let
@@ -163,14 +170,15 @@ component =
                                                     }
 
                                       in
-                                        getTypeMapAt position ast typeTree
+                                        getTypeMapAt position asts typeTree
                                           # fromMaybe Map.empty
                                           # getDropdownsFromTypeMap
                                   }
+                                  InsertVariable
                               ]
                             found -> [ HH.text $ "Not in text: " <> show found ]
 
-                  _, _ ->
+                  _ ->
                     [
                     ]
 
@@ -179,7 +187,7 @@ component =
               [ HH.slot (Proxy :: Proxy "Editor") unit Editor.component
                   { doc: initialQuery
                   , lint: []
-                  , autocompletion: Just $ autocompletion state.autocompleteState state.ast state.schemaTypeTree
+                  , autocompletion: Nothing -- Just $ autocompletion state.autocompleteState state.ast state.schemaTypeTree
                   }
                   case _ of
                     Editor.DocChanged viewUpdate -> SetTemplate viewUpdate
@@ -223,14 +231,14 @@ component =
       ]
     where
     asts :: List AstPos
-    asts = fromMaybe (Nil) state.ast
+    asts = state.ast
 
   handleAction = case _ of
     Init -> do
       autocompleteState <- liftEffect $ Ref.new Nothing
       st <- H.modify _ { autocompleteState = Just autocompleteState }
       loadSchema
-      putParsedTemplate st.template
+      handleNewTemplate st.template
     SetUrl url -> do
       H.modify_ _ { url = url }
       loadSchema
@@ -240,7 +248,17 @@ component =
     SetTemplate viewUpdate -> do
       setCursorPosition viewUpdate
       template <- liftEffect $ getViewUpdateContent viewUpdate
-      putParsedTemplate template
+      handleNewTemplate template
+    InsertVariable path ->
+      do
+        { cursorPosition, template, ast } <- H.get
+        case NonEmptyArray.fromArray path of
+          Nothing -> pure unit
+          Just path' -> do
+            let newAstMb = insertVarPathAt (toUnfoldable1 path') (fromMaybe (String.length template) cursorPosition) ast
+            case newAstMb of
+              Nothing -> Console.error $ "Failed to insert variable with path " <> show path <> " at position " <> show cursorPosition <> "."
+              Just newAst -> handleNewAst newAst
 
     where
     setCursorPosition viewUpdate = do
@@ -265,9 +283,19 @@ component =
         , schemaTypeTree = getTypeTreeFromDoc =<< hush doc
         }
 
-    putParsedTemplate template = do
+    handleNewAst ast = do
+      let template = printPositioned ast
+      H.modify_ _
+        { ast = ast
+        , template = template
+        }
 
-      { url, headers, schemaTypeTree } <- H.modify _ { template = template }
+      H.tell _editor unit $ Editor.SetContent template
+      updateResult
+
+    handleNewTemplate template = do
+
+      { schemaTypeTree } <- H.modify _ { template = template }
       let
 
         toDiagnostic :: TemplaterError -> Diagnostic
@@ -306,26 +334,28 @@ component =
                     , message: displayPositionedError err
                     , to: Just end
                     }
+            , ast = ast
             }
-
           relint errors
+          updateResult
 
-          res <- eval
-            { ast
-            , url
-            , headers: headers # split (Pattern "\n") # mapMaybe \str -> case split (Pattern ":") str of
-                [ key, value ] -> Just $ RequestHeader key value
-                _ -> Nothing
-            , debounceTime: Milliseconds 250.0
-            }
-          case res of
-            NoQuery -> pure unit
-            DidNotRun -> pure unit
-            EvalFailure err -> H.modify_ _
-              { result = show err
-              , ast = Just ast
-              }
-            EvalSuccess resultStr -> H.modify_ _ { result = resultStr, ast = Just ast }
+    updateResult = do
+      { url, headers, ast } <- H.get
+      res <- eval
+        { ast
+        , url
+        , headers: headers # split (Pattern "\n") # mapMaybe \str -> case split (Pattern ":") str of
+            [ key, value ] -> Just $ RequestHeader key value
+            _ -> Nothing
+        , debounceTime: Milliseconds 250.0
+        }
+      case res of
+        NoQuery -> pure unit
+        DidNotRun -> pure unit
+        EvalFailure err -> H.modify_ _
+          { result = show err
+          }
+        EvalSuccess resultStr -> H.modify_ _ { result = resultStr }
 
   resultLabel = H.RefLabel "result"
 

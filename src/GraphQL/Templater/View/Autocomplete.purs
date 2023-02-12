@@ -15,7 +15,7 @@ import Effect.Class.Console as Console
 import Effect.Ref (Ref)
 import GraphQL.Templater.Ast (AstPos)
 import GraphQL.Templater.Ast.Print (printPositioned)
-import GraphQL.Templater.Ast.Transform (insertEmptyEachAt, insertVarAt)
+import GraphQL.Templater.Ast.Transform (insertEmptyEachAt, insertSingleVarAt)
 import GraphQL.Templater.TypeDefs (GqlTypeTree)
 import GraphQL.Templater.View.Component.Editor (CompletionContext, CompletionResult, Match, matchBefore, setContent)
 import GraphQL.TemplaterAst.Suggest (getStartingSuggestions)
@@ -77,7 +77,7 @@ autocompletion stRef astsMb typeTreeMb ctx = firstMatch
               , info: description
               , type: Just "variable"
               , apply: Just \applyInput@{ view } ->
-                  case insertVarAt field applyInput.from asts of
+                  case insertSingleVarAt field applyInput.from asts of
                     Just asts' -> setContent (printPositioned asts') view
                     _ -> Console.error $ "Failed to insert var at index " <> show applyInput.from
               }
