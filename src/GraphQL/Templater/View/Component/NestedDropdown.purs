@@ -6,13 +6,15 @@ module GraphQL.Templater.View.Component.NestedDropdown
 
 import Prelude
 
-import Data.Array (findMap, head, uncons)
+import Data.Array (filter, findMap, head, sortWith, uncons)
 import Data.Lazy (Lazy, force)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Monoid (guard)
-import Debug (traceM)
+import Data.String (Pattern(..), contains)
+import Data.String as String
+import Data.String.Utils (startsWith)
 import Effect.Class (class MonadEffect, liftEffect)
 import GraphQL.Templater.View.Html.Icons (chevronDown, chevronRight, chevronUp)
 import GraphQL.Templater.View.Html.Input (input)
@@ -60,6 +62,7 @@ nestedDropdown
   :: forall id m q
    . MonadEffect m
   => Ord id
+  => Show id
   => H.Component q (Input id) (Array id) m
 nestedDropdown =
   H.mkComponent
@@ -111,47 +114,69 @@ nestedDropdown =
         _ -> []
 
     where
-    searchHtml = 
-      [ input  
-        { label: "Search"
-        , placeholder: ""
-        , value: fromMaybe "" $ Map.lookup currentPath state.searches
-        , onChange: SetSearch currentPath
-        }
+    searchHtml =
+      [ input
+          { label: "Search"
+          , placeholder: ""
+          , value: fromMaybe "" $ Map.lookup currentPath state.searches
+          , onInput: SetSearch currentPath
+          }
       ]
-    itemsHtml = items <#> \item ->
-      let
-        itemCss selectable selected =
-          "text-gray-900 relative flex w-full justify-between select-none py-2 pl-3 pr-3 "
-            <> guard selectable " cursor-pointer"
-            <> (if selected then " bg-blue-200" else " hover:bg-blue-100")
 
-      in
-        case item of
-          Node { label, id } ->
-            HH.li
-              [ css $ itemCss true (isSelected id)
-              , HE.onClick \_ -> Select $ currentPath <> [ id ]
-              , HE.onMouseEnter (SetPath currentPath)
-              ]
-              [ HH.text label
-              ]
+    currentSearch = fromMaybe "" $ Map.lookup currentPath state.searches
 
-          Parent { label, selectable, id } ->
-            let
-              newPath = currentPath <> [ id ]
-            in
-              HH.li
-                ( [ css $ itemCss true (isSelected id)
-                  , HE.onMouseEnter (SetPath newPath)
+    hasStartMatch item =
+      startsWith currentSearch (getLabel item)
+
+    highlightSearch str = case String.indexOf (Pattern currentSearch) str of
+      Nothing -> HH.text str
+      Just idx ->
+        let
+          { before, after } = String.splitAt idx str
+        in
+          HH.span []
+            [ HH.text before
+            , HH.span [ css "bg-blue-800 text-gray-100" ] [ HH.text currentSearch ]
+            , HH.text $ String.drop (String.length currentSearch) after
+            ]
+
+    itemsHtml =
+      items
+        # filter (contains (Pattern currentSearch) <<< getLabel)
+        # sortWith (not hasStartMatch)
+        <#> \item ->
+          let
+            itemCss selectable selected =
+              "text-gray-900 relative flex w-full justify-between select-none py-2 pl-3 pr-3 "
+                <> guard selectable " cursor-pointer"
+                <> (if selected then " bg-blue-200" else " hover:bg-blue-100")
+
+          in
+            case item of
+              Node { label, id } ->
+                HH.li
+                  [ css $ itemCss true (isSelected id)
+                  , HE.onClick \_ -> Select $ currentPath <> [ id ]
+                  , HE.onMouseEnter (SetPath currentPath)
                   ]
-                    <> guard selectable
-                      [ HE.onClick \_ -> Select newPath
+                  [ highlightSearch label
+                  ]
+
+              Parent { label, selectable, id } ->
+                let
+                  newPath = currentPath <> [ id ]
+                in
+                  HH.li
+                    ( [ css $ itemCss true (isSelected id)
+                      , HE.onMouseEnter (SetPath newPath)
                       ]
-                )
-                [ HH.div [] [ HH.text label ]
-                , chevronRight []
-                ]
+                        <> guard selectable
+                          [ HE.onClick \_ -> Select newPath
+                          ]
+                    )
+                    [ HH.div [] [ highlightSearch label ]
+                    , chevronRight []
+                    ]
 
     isSelected :: id -> Boolean
     isSelected id = Just id == head pathToFollow
@@ -159,9 +184,18 @@ nestedDropdown =
     childrenMay = case uncons pathToFollow of
       Just { head, tail } ->
         items # findMap case _ of
-          Parent { id, children } | head == id -> Just { children, tail, id }
+          Parent { id, children } | head == id ->
+            Just
+              { tail
+              , id
+              , children
+              }
           _ -> Nothing
       _ -> Nothing
+
+    getLabel = case _ of
+      Node { label } -> label
+      Parent { label } -> label
 
   handleAction :: (Action id) -> H.HalogenM (State id) (Action id) _ _ m Unit
   handleAction = case _ of
@@ -173,13 +207,13 @@ nestedDropdown =
     ToggleOpen -> H.modify_ \st -> st { open = not st.open }
 
     SetPath path ev -> do
-      traceM "SetPath"
-      traceM { path }
       liftEffect $ stopPropagation $ MouseEvent.toEvent ev
       H.modify_ _ { path = path }
 
     Select path -> H.raise path
 
-    SetSearch ids search -> H.modify_ \st -> st { searches = Map.insert ids search st.searches }
--- H.modify_ \_state -> input
--- nestedDropdown :: Array ()
+    SetSearch ids search ->
+      H.modify_ \st -> st
+        { searches =
+            Map.insert ids search st.searches
+        }
