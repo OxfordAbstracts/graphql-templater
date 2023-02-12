@@ -92,12 +92,12 @@ getAstAt idx = case _ of
 isAtIdx :: Int -> Ast Positions -> Boolean
 isAtIdx idx = case _ of
   Each _ _ open close ->
-    (idx >= getStartIdx open && idx <= getEndIdx open)
-      || (idx >= getStartIdx close && idx <= getEndIdx close)
+    (idx > getStartIdx open && idx < getEndIdx open)
+      || (idx > getStartIdx close && idx < getEndIdx close)
   With _ _ open close ->
-    (idx >= getStartIdx open && idx <= getEndIdx open)
-      || (idx >= getStartIdx close && idx <= getEndIdx close)
-  Var _ pos -> idx >= getStartIdx pos && idx <= getEndIdx pos
+    (idx > getStartIdx open && idx < getEndIdx open)
+      || (idx > getStartIdx close && idx < getEndIdx close)
+  Var _ pos -> idx >= getStartIdx pos && idx < getEndIdx pos
   Text _ pos -> idx >= getStartIdx pos && idx <= getEndIdx pos
 
 isWithin

@@ -12,6 +12,7 @@ import Data.DateTime.Instant (Instant)
 import Data.Either (Either(..), either, hush)
 import Data.Foldable (intercalate)
 import Data.GraphQL.AST.Print (printAst)
+import Data.Lazy (force)
 import Data.List (List(..))
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
@@ -19,6 +20,8 @@ import Data.String (Pattern(..), joinWith, split)
 import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
+import Data.Tuple.Nested ((/\))
+import Debug (spy)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Exception (message)
 import Effect.Ref (Ref)
@@ -33,15 +36,15 @@ import GraphQL.Templater.Ast.TypeCheck.Errors.GetPositions (getPositions)
 import GraphQL.Templater.Eval (EvalResult(..), eval)
 import GraphQL.Templater.Eval.MakeQuery (toGqlString)
 import GraphQL.Templater.GetSchema (getGqlDoc)
-import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
+import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeMapFromTree, getTypeTreeFromDoc)
 import GraphQL.Templater.View.Autocomplete (AutocompleteState, autocompletion)
-import GraphQL.Templater.View.Editor (Diagnostic, ViewUpdate, getViewUpdateContent, getViewUpdateSelectionRanges)
-import GraphQL.Templater.View.Editor as Editor
-import GraphQL.Templater.View.Html.NestedDropdown (nestedDropdown)
-import GraphQL.Templater.View.Html.NestedDropdown as NestedDropdown
+import GraphQL.Templater.View.Component.Editor (Diagnostic, ViewUpdate, getViewUpdateContent, getViewUpdateSelectionRanges)
+import GraphQL.Templater.View.Component.Editor as Editor
+import GraphQL.Templater.View.Component.NestedDropdown (nestedDropdown)
+import GraphQL.Templater.View.Component.NestedDropdown as NestedDropdown
 import GraphQL.Templater.View.Html.Utils (css)
-import GraphQL.TemplaterAst.Suggest (getAstAt)
-import Halogen (liftEffect)
+import GraphQL.TemplaterAst.Suggest (getAstAt, getTypeMapAt)
+import Halogen (defer, liftEffect)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
@@ -127,38 +130,49 @@ component =
               [ css "w-[16rem] m-2 p-2 rounded-md border border-gray-400"
               ]
               $
-                [ HH.slot_ (Proxy :: _ "Test dropdown") unit nestedDropdown
-                    { label: "test dropdown"
-                    , items:
-                        [ NestedDropdown.Node { label: "test 1", id: "test 1" } 
-                        , NestedDropdown.Node { label: "test 2", id: "test 2" }
-                        , NestedDropdown.Parent 
-                            { label: "test 3"
-                            , id: "test 3"
-                            , selectable: true
-                            , children: pure
-                                [ NestedDropdown.Node { label: "test 3.1", id: "test 3.1" }
-                                , NestedDropdown.Node { label: "test 3.2", id: "test 3.2" }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-                  <>
-                    case state.cursorPosition, state.ast of
-                      Just position, Just ast ->
-                        case getAstAt position ast of
-                          Nothing -> [ HH.text $ "Error. Nothing found at position " <> show position <> "." ]
-                          Just selectedAst ->
-                            case selectedAst of
-                              Text txt _ ->
-                                [ HH.text "'"
-                                ]
-                              _ -> [ HH.text "'" ]
+                case state.ast, state.schemaTypeTree of
+                  Just ast, Just typeTree ->
+                    let
+                      position = fromMaybe (String.length state.template) state.cursorPosition
+                    in
+                      case getAstAt position ast of
+                        Nothing -> [ HH.text $ "Error. Nothing found at position " <> show position <> "." ]
+                        Just selectedAst ->
+                          case selectedAst of
+                            Text txt _ ->
+                              [ HH.slot_ (Proxy :: _ "insert_variable") unit nestedDropdown
+                                  { label: "Insert variable"
+                                  , items: defer \_ ->
+                                      let
+                                        getDropdownsFromTypeMap tm = Map.toUnfoldable tm
+                                          <#> \(name /\ type_) ->
+                                            let
+                                              { returns } = force type_
+                                            in
+                                              case getTypeMapFromTree returns of
+                                                Just tm' -> NestedDropdown.Parent
+                                                  { label: name
+                                                  , id: name
+                                                  , selectable: false
+                                                  , children: defer \_ -> getDropdownsFromTypeMap tm'
+                                                  }
+                                                _ ->
+                                                  NestedDropdown.Node
+                                                    { id: name
+                                                    , label: name
+                                                    }
 
-                      _, _ ->
-                        [ HH.text "Click to on the editor to insert or edit merge fields"
-                        ]
+                                      in
+                                        getTypeMapAt position ast typeTree
+                                          # fromMaybe Map.empty
+                                          # getDropdownsFromTypeMap
+                                  }
+                              ]
+                            found -> [ HH.text $ "Not in text: " <> show found ]
+
+                  _, _ ->
+                    [
+                    ]
 
           , HH.div
               []

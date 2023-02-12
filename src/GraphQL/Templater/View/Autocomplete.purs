@@ -17,7 +17,7 @@ import GraphQL.Templater.Ast (AstPos)
 import GraphQL.Templater.Ast.Print (printPositioned)
 import GraphQL.Templater.Ast.Transform (insertEmptyEachAt, insertVarAt)
 import GraphQL.Templater.TypeDefs (GqlTypeTree)
-import GraphQL.Templater.View.Editor (CompletionContext, CompletionResult, Match, matchBefore, setContent)
+import GraphQL.Templater.View.Component.Editor (CompletionContext, CompletionResult, Match, matchBefore, setContent)
 import GraphQL.TemplaterAst.Suggest (getStartingSuggestions)
 
 data AutocompleteState
