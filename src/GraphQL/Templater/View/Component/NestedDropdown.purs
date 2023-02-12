@@ -204,7 +204,11 @@ nestedDropdown =
     Receive input ->
       pure unit
 
-    ToggleOpen -> H.modify_ \st -> st { open = not st.open }
+    ToggleOpen -> H.modify_ \st ->
+      st
+        { open = not st.open
+        , searches = Map.empty :: Map (Array id) String
+        }
 
     SetPath path ev -> do
       liftEffect $ stopPropagation $ MouseEvent.toEvent ev
