@@ -18,8 +18,7 @@ module GraphQL.Templater.View.Component.Editor
   , getViewUpdateSelectionRanges
   , matchBefore
   , setContent
-  )
-  where
+  ) where
 
 import Prelude
 

@@ -5,8 +5,7 @@ module GraphQL.Templater.Ast.Transform
   , insertVarAt
   , insertVarAt'
   , modifyTextAt
-  )
-  where
+  ) where
 
 import Prelude
 
