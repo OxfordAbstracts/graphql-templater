@@ -8,9 +8,9 @@ import Data.List as List
 import Data.List.NonEmpty as NonEmptyList
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Set as Set
-import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
-import GraphQL.Templater.LevenshteinDistance (closest)
 import GraphQL.Templater.Ast.TypeCheck.Errors (ArgTypeError(..), MismatchReason(..), TypeError(..), TypeErrorWithPath(..))
+import GraphQL.Templater.JsonPos (NormalizedJsonPos(..), getKeyStr)
+import GraphQL.Templater.LevenshteinDistance (closest)
 
 displayPositionedError :: forall a. TypeErrorWithPath a -> String
 displayPositionedError (TypeErrorWithPath typeError path _pos) = case typeError of
@@ -58,7 +58,7 @@ displayPositionedError (TypeErrorWithPath typeError path _pos) = case typeError 
   nodeIdx = List.findIndex (getKey >>> isJust)
 
   getKey = case _ of
-    Key key _ -> Just key
+    Key key _ -> Just $ getKeyStr key
     _ -> Nothing
 
   getKeyAt idx = List.index reversed idx >>= getKey

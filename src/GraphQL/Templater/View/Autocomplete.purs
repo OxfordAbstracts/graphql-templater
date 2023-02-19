@@ -9,7 +9,6 @@ import Data.Maybe (Maybe(..))
 import Data.String.Regex (Regex)
 import Data.String.Regex.Flags (noFlags)
 import Data.String.Regex.Unsafe (unsafeRegex)
-import Debug (spy, spyWith, traceM)
 import Effect.Class (class MonadEffect)
 import Effect.Class.Console as Console
 import Effect.Ref (Ref)
@@ -18,7 +17,7 @@ import GraphQL.Templater.Ast.Print (printPositioned)
 import GraphQL.Templater.Ast.Transform (insertEmptyEachAt, insertSingleVarAt)
 import GraphQL.Templater.TypeDefs (GqlTypeTree)
 import GraphQL.Templater.View.Component.Editor (CompletionContext, CompletionResult, Match, matchBefore, setContent)
-import GraphQL.TemplaterAst.Suggest (getStartingSuggestions)
+import GraphQL.Templater.Ast.Suggest (getStartingSuggestions)
 
 data AutocompleteState
   = InVar
@@ -33,7 +32,7 @@ autocompletion
   -> Maybe GqlTypeTree
   -> CompletionContext
   -> m (Maybe CompletionResult)
-autocompletion stRef astsMb typeTreeMb ctx = firstMatch
+autocompletion _stRef astsMb typeTreeMb ctx = firstMatch
   [ { rgx: unsafeRegex """\{\{#""" noFlags
     , result: getKeywords
     }
@@ -66,8 +65,7 @@ autocompletion stRef astsMb typeTreeMb ctx = firstMatch
   getVars { from } = do
     case astsMb, typeTreeMb of
       Just asts, Just typeTree -> do
-        let { vars } = getStartingSuggestions (spy "from" from) (spyWith "template" printPositioned asts) typeTree
-        traceM { vars }
+        let { vars } = getStartingSuggestions from asts typeTree
         pure $ Just
           { filter: false
           , from

@@ -13,12 +13,12 @@ import Data.Lazy (force)
 import Data.List (List(..), uncons, (:))
 import Data.List.NonEmpty as NonEmpty
 import Data.Map as Map
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), VarPathPart(..), Args)
-import GraphQL.Templater.JsonPos (JsonPos(..), NormalizedJsonPos(..), normalizePos)
-import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.Ast.TypeCheck.Arguments (typeCheckArguments)
 import GraphQL.Templater.Ast.TypeCheck.Errors (ArgTypeError, PositionedError, TypeError(..), TypeErrorWithPath(..))
+import GraphQL.Templater.JsonPos (JsonPos(..), NormalizedJsonPos(..), getKey, normalizePos)
+import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..))
 
 getTypeErrorsFromTree :: GqlTypeTree -> List AstPos -> List PositionedError
@@ -147,7 +147,7 @@ getTypeErrorsFromTree typeTree asts' = map (map _.pos) $ _.errors $ execState (c
     Cons (Key k p) rest ->
       getTypeMap k p fullPath types
         # either pure
-            ( lookupType k p fullPath >>> either pure \{ args, returns } ->
+            ( lookupType (k.name) p fullPath >>> either pure \{ args, returns } ->
                 (argTypeErrorToTypeError fullPath p <$> typeCheckArguments args (map addNullArgs <$> p.args)) <>
                   getErrors atPathEnd fullPath p returns rest
             )
@@ -182,7 +182,7 @@ varPathToPosAndArgs path = foldl step Nil path
     VarPartNameRoot pos -> Root { pos, args } : res
     VarPartNameParent pos -> Parent { pos, args } : res
     VarPartNameGqlName gqlName pos ->
-      (Pos $ Key (gqlName) { pos, args })
+      (Pos $ Key (getKey (fromMaybe Nil args) gqlName) { pos, args })
         : res
 
 type PosAndArgs = { pos :: Positions, args :: Maybe (Args Positions) }

@@ -15,7 +15,22 @@ data JsonPos a
   | Root a
   | Pos (NormalizedJsonPos a)
 
-data NormalizedJsonPos a = Key String a | Index Int a
+data NormalizedJsonPos a
+  = Key
+      { name :: String
+      , alias :: Maybe String
+      }
+      a
+  | Index Int a
+
+
+data JsonPosWoAlias a = WoAliasKey String a | WoAliasIndex Int a
+
+
+removeAlias :: forall a. NormalizedJsonPos a -> JsonPosWoAlias a 
+removeAlias = case _ of
+  Key { name, alias: _ } a -> WoAliasKey name a
+  Index idx a -> WoAliasIndex idx a
 
 varPathToPosition :: forall f a. Foldable f => f (VarPathPart a) -> List (JsonPos a)
 varPathToPosition path = foldl step Nil path
@@ -45,8 +60,12 @@ addJsonIdx idx l = case uncons l of
   Just { head: Pos (Key key a), tail } -> (Pos $ Index idx a) : (Pos (Key key a)) : tail
   _ -> l
 
-getKey ∷ forall a. Args a → String → String
-getKey args name = fromMaybe name $ getAlias name args
+getKey ∷ forall a. Args a → String → { name :: String, alias :: Maybe String }
+getKey args name = { name, alias: getAlias name args }
+
+getKeyStr :: { name :: String, alias :: Maybe String } -> String
+getKeyStr key = fromMaybe key.name key.alias
+
 
 derive instance Generic (JsonPos a) _
 

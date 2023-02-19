@@ -2,20 +2,24 @@ module GraphQL.Templater.View.App.Gui where
 
 import Prelude
 
+import Data.Bifunctor (lmap)
 import Data.Lazy (force)
+import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String as String
 import Data.Tuple.Nested ((/\))
 import Effect.Class (class MonadEffect)
+import Foreign.Object (Object)
+import Foreign.Object as Object
 import GraphQL.Templater.Ast (Ast(..))
+import GraphQL.Templater.Ast.Suggest (getAstAt, getTypeMapAt)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeMapFromTree)
 import GraphQL.Templater.View.App.Types (Action(..), State)
 import GraphQL.Templater.View.Component.Editor as Editor
 import GraphQL.Templater.View.Component.NestedDropdown (nestedDropdown)
 import GraphQL.Templater.View.Component.NestedDropdown as NestedDropdown
 import GraphQL.Templater.View.Html.Utils (css)
-import GraphQL.TemplaterAst.Suggest (getAstAt, getTypeMapAt)
 import Halogen (defer)
 import Halogen as H
 import Halogen.HTML as HH
@@ -64,7 +68,7 @@ gui state =
   startControls typeTree position =
     [ HH.slot (Proxy :: _ "insert_variable") unit nestedDropdown
         { label: "Insert variable"
-        , items: defer \_ ->
+        , items:
             let
               getDropdownsFromTypeMap tm = Map.toUnfoldable tm
                 <#> \(name /\ type_) ->
@@ -92,7 +96,7 @@ gui state =
         InsertVariable
     , HH.slot (Proxy :: _ "insert_each") unit nestedDropdown
         { label: "Insert each"
-        , items: defer \_ ->
+        , items:
             let
               getDropdownsFromTypeMap tm = Map.toUnfoldable tm
                 >>= \(name /\ type_) ->
@@ -131,7 +135,7 @@ gui state =
         InsertEach
     , HH.slot (Proxy :: _ "insert_with") unit nestedDropdown
         { label: "Insert with"
-        , items: defer \_ ->
+        , items:
             let
               getDropdownsFromTypeMap tm = Map.toUnfoldable tm
                 >>= \(name /\ type_) ->
@@ -169,3 +173,10 @@ gui state =
         }
         InsertWith
     ]
+
+
+toObj :: forall k v. Show k => Map k v -> Object v 
+toObj =  showKeys >>> Object.fromFoldableWithIndex
+
+showKeys :: forall k v. Show k => Map k v -> Map String v
+showKeys = (Map.toUnfoldable :: _ -> Array _) >>> map (lmap show) >>> Map.fromFoldable

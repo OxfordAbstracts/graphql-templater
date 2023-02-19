@@ -43,6 +43,7 @@ getPos = case _ of
   Each _ _ open close -> { open, close: Just close }
   With _ _ open close -> { open, close: Just close }
   Text _ open -> { open, close: Nothing }
+  
 
 type AstPos = Ast Positions
 

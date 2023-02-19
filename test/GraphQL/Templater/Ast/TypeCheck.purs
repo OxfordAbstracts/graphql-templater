@@ -6,13 +6,16 @@ import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.Either (Either(..))
 import Data.GraphQL.Parser (document)
 import Data.List (List(..), (:))
-import Data.Maybe (fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Newtype (wrap)
 import Data.Set as Set
 import Effect.Exception (Error, error)
-import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
+import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..), T_Argument, Value(..))
 import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Ast.TypeCheck (getTypeErrorsFromTree)
 import GraphQL.Templater.Ast.TypeCheck.Errors (ArgTypeError(..), PositionedError, TypeError(..), TypeErrorWithPath(..))
+import GraphQL.Templater.Eval.MakeQuery (getAlias)
+import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeTreeFromDoc)
 import Parsing (ParseError, Position(..), parseErrorMessage, runParser)
 import Test.Spec (Spec, describe, it)
@@ -50,7 +53,7 @@ spec = do
         errors <- throwParser $ typeCheck simpleSchema template
         errors `shouldEqual`
           ( TypeErrorWithPath (FieldNotFound $ Set.fromFoldable [ "foo" ])
-              ( ( Key "bar"
+              ( ( Key { name: "bar", alias: Nothing }
                     { end: (Position { column: 10, index: 9, line: 1 })
                     , start: (Position { column: 7, index: 6, line: 1 })
                     }
@@ -67,11 +70,11 @@ spec = do
         errors <- typeCheckNoPos usersSchema template
         errors `shouldEqual`
           ( TypeErrorWithPath (FieldNotFound $ Set.fromFoldable [ "user", "users", "top_level" ])
-              ( (Key "baz" unit) : Nil
+              ( (Key (noAlias "baz") unit) : Nil
               )
               unit
               : TypeErrorWithPath (FieldNotFound $ Set.fromFoldable [ "user", "users", "top_level" ])
-                  ( (Key "bar" unit) : Nil
+                  ( (Key (noAlias "bar") unit) : Nil
                   )
                   unit
               : Nil
@@ -97,8 +100,15 @@ spec = do
         errors <- typeCheckNoPos usersSchema template
         errors `shouldEqual`
           ( TypeErrorWithPath (FieldNotFound $ Set.fromFoldable [ "id", "name", "friends" ])
-              ( Key "user" unit
-                  : Key "not_here" unit
+              ( Key
+                  ( withAlias "user" $ pure
+                      { name: ArgName "id" unit
+                      , value: Value_StringValue (wrap "id-val") unit
+                      , pos: unit
+                      }
+                  )
+                  unit
+                  : Key (noAlias "not_here") unit
                   : Nil
               )
               unit : Nil
@@ -137,14 +147,28 @@ spec = do
           template = "{{#each user(id: 1)}}{{id}}{{/each}}"
 
         errors <- typeCheckNoPos usersSchema template
-        errors `shouldEqual` ((TypeErrorWithPath NotList ((Key "user" unit) : Nil) unit) : Nil)
+        errors `shouldEqual`
+          ( ( TypeErrorWithPath NotList
+                ( ( Key
+                      ( withAlias "user" $ pure
+                          { name: ArgName "id" unit
+                          , value: Value_IntValue (wrap 1) unit
+                          , pos: unit
+                          }
+                      )
+                      unit
+                  ) : Nil
+                )
+                unit
+            ) : Nil
+          )
 
       it "should return an error if the with field is not a object" do
         let
           template = "{{#with users}}{{id}}{{/with}}"
 
         errors <- typeCheckNoPos usersSchema template
-        errors `shouldEqual` ((TypeErrorWithPath NotObject ((Key "users" unit) : Nil) unit) : Nil)
+        errors `shouldEqual` ((TypeErrorWithPath NotObject ((Key (noAlias "users") unit) : Nil) unit) : Nil)
 
       it "should return an error if variable inside an each is not a child of the each" do
         let
@@ -153,8 +177,8 @@ spec = do
         errors <- typeCheckNoPos usersSchema template
         errors `shouldEqual`
           ( ( TypeErrorWithPath (FieldNotFound $ Set.fromFoldable [ "friends", "id", "name" ])
-                ( (Key "users" unit)
-                    : (Key "top_level" unit)
+                ( (Key (noAlias "users") unit)
+                    : (Key (noAlias "top_level") unit)
                     : Nil
                 )
                 unit
@@ -168,10 +192,18 @@ spec = do
         errors <- typeCheckNoPos usersSchema template
         errors `shouldEqual`
           ( ( TypeErrorWithPath (FieldNotFound $ Set.fromFoldable [ "friends", "id", "name" ])
-                ( (Key "user" unit)
-                    : (Key "friends" unit)
-                    : (Key "friends" unit)
-                    : (Key "invalid" unit)
+                ( ( Key
+                      ( withAlias "user" $ pure
+                          { name: ArgName "id" unit
+                          , value: Value_IntValue (wrap 1) unit
+                          , pos: unit
+                          }
+                      )
+                      unit
+                  )
+                    : (Key (noAlias "friends") unit)
+                    : (Key (noAlias "friends") unit)
+                    : (Key (noAlias "invalid") unit)
                     : Nil
                 )
                 unit
@@ -194,13 +226,19 @@ spec = do
                           }
                       )
                   )
-                  ( ( Key "users"
+                  ( ( Key
+                        ( withAlias "users" $ pure
+                            { name: ArgName "invalid" unit
+                            , value: Value_IntValue (wrap 1) unit
+                            , pos: unit
+                            }
+                        )
                         { end: (Position { column: 8, index: 7, line: 1 })
                         , start: (Position { column: 3, index: 2, line: 1 })
                         }
                     )
                       :
-                        ( Key "id"
+                        ( Key (noAlias "id")
                             { end: (Position { column: 23, index: 22, line: 1 })
                             , start: (Position { column: 21, index: 20, line: 1 })
                             }
@@ -213,6 +251,20 @@ spec = do
               ) : Nil
             )
           )
+
+noAlias ∷ ∀ (n ∷ Type) (a ∷ Type). n → { alias ∷ Maybe a, name ∷ n }
+noAlias = { name: _, alias: Nothing }
+
+withAlias
+  :: forall a
+   . String
+  -> List (T_Argument a)
+  -> { alias :: Maybe String
+     , name :: String
+     }
+withAlias name args = { name, alias: getAlias name (map Argument args) }
+
+-- withAlias 
 
 simpleSchema ∷ String
 simpleSchema =

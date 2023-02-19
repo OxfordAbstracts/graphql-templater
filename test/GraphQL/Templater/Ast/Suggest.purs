@@ -1,17 +1,19 @@
-module Test.GraphQL.TemplaterAst.Suggest (spec) where
+module Test.GraphQL.Templater.Ast.Suggest (spec) where
 
 import Prelude
 
 import Control.Monad.Error.Class (class MonadThrow, throwError)
+import Data.Array as Array
 import Data.Either (Either(..))
 import Data.GraphQL.Parser (document)
 import Data.List (List(..), (:))
+import Data.Map.Internal as Map
 import Data.Maybe (Maybe(..))
 import Effect.Exception (Error, error)
 import GraphQL.Templater.Ast (AstPos)
 import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getTypeTreeFromDoc)
-import GraphQL.TemplaterAst.Suggest (getPathAt, getStartingSuggestions)
+import GraphQL.Templater.Ast.Suggest (getPathAt, getStartingSuggestions, getTypeMapAt)
 import Parsing (ParseError, parseErrorMessage, runParser)
 import Record.Extra (mapRecord)
 import Test.Spec (Spec, describe, it)
@@ -19,7 +21,37 @@ import Test.Spec.Assertions (shouldEqual)
 
 spec :: Spec Unit
 spec = do
-  describe "GraphQL.TemplaterAst.Suggest" do
+  describe "GraphQL.Templater.Ast.Suggest" do
+    describe "getTypeMapAt" do
+      let
+        getTypeMapKeysAt pos = getTypeMapAt pos >>> map
+          ( map
+              (Array.fromFoldable <<< Map.keys)
+          )
+      it "should return a top level map when text only" do
+        let
+          template = "this is text"
+
+        ast <- throwParser $ parse template
+        tree <- parseTypeTree usersSchema
+        getTypeMapKeysAt 1 ast tree `shouldEqual` Just [ "top_level", "user", "users" ]
+
+      it "should return the fields inside in an each" do
+        let
+          template = "{{#each users}} this is text{{/each}}"
+
+        ast <- throwParser $ parse template
+        tree <- parseTypeTree usersSchema
+        getTypeMapKeysAt 17 ast tree `shouldEqual` Just [ "friends", "id", "name" ]
+
+      it "should return the fields inside in an each with arguments" do
+        let
+          template = "{{#each users(a:1)}} this is text{{/each}}"
+
+        ast <- throwParser $ parse template
+        tree <- parseTypeTree usersSchema
+        getTypeMapKeysAt 22 ast tree `shouldEqual` Just [ "friends", "id", "name" ]
+
     describe "getPathAt" do
       it "should return an empty path when text only" do
         let

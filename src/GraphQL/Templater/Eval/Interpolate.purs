@@ -14,7 +14,7 @@ import Data.Maybe (fromMaybe, maybe)
 import Foreign.Object as Object
 import GraphQL.Templater.Ast (Ast, VarPath(..))
 import GraphQL.Templater.Ast as Ast
-import GraphQL.Templater.JsonPos (JsonPos, NormalizedJsonPos(..), addJsonIdx, normalizePos, varPathToPosition)
+import GraphQL.Templater.JsonPos (JsonPos, NormalizedJsonPos(..), addJsonIdx, getKeyStr, normalizePos, varPathToPosition)
 
 interpolate :: forall a. List (Ast a) -> Json -> String
 interpolate = go Nil
@@ -39,7 +39,7 @@ interpolate = go Nil
       lookupJson v = foldl step json fullPath
         where
         step currentJson = case _ of
-          Key key _ -> lookupObj key currentJson
+          Key key _ -> lookupObj (getKeyStr key) currentJson
           Index idx _ -> currentJson # lookupArr idx
 
         fullPath = normalizePos $ varPathToPosition v <> path
@@ -55,6 +55,7 @@ interpolate = go Nil
 
         lookupArr idx = caseJsonArray jsonNull \arr ->
           fromMaybe jsonNull $ arr !! idx
+
 
 displayJson :: forall a. List (JsonPos a) -> Json -> String
 displayJson path j = caseJson

@@ -7,7 +7,7 @@ import Prelude
 import Control.Monad.Error.Class (class MonadThrow)
 import Data.Either (Either(..))
 import Data.List (List(..), foldMap, (:))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
 import Effect.Class (class MonadEffect)
 import Effect.Exception (Error)
 import GraphQL.Templater.Ast (Ast(..))
@@ -123,6 +123,12 @@ spec = do
       it "should insert into an each with newlines" do
         parseAndTestInsertTextAt "a" 16 "\n{{#each list}}  \n{{/each}}\n" "\n{{#each list}} a \n{{/each}}\n"
 
+      it "should insert at the at the beginning of a variable only template" do
+        parseAndTestInsertTextAt "a" 0 "{{var}}" "a{{var}}"
+
+      it "should insert at the at the end of a variable only template" do
+        parseAndTestInsertTextAt "a" 7 "{{var}}" "{{var}}a"
+
     describe "insertEmptyEachAt" do
       it "should insert an empty each into a blank string" do
         parseAndTestInsertEmptyEachAt
@@ -135,7 +141,7 @@ parseAndTestInsertTextAt :: forall m. MonadEffect m => MonadThrow Error m => Str
 parseAndTestInsertTextAt insert idx input expected =
   case parse input, parse expected of
     Right inputParsed, Right expectedParsed -> do
-      foldMap printPositioned (insertTextAt insert idx inputParsed) `shouldEqual` printPositioned expectedParsed
+      maybe "insertTextAt returned Nothing" printPositioned (insertTextAt insert idx inputParsed) `shouldEqual` printPositioned expectedParsed
     _, _ -> fail "failed to parse"
 
 parseAndTestInsertEmptyEachAt :: forall m. MonadEffect m => MonadThrow Error m => String -> Int -> String -> String -> m Unit
@@ -144,3 +150,4 @@ parseAndTestInsertEmptyEachAt insert idx input expected =
     Right inputParsed, Right expectedParsed -> do
       foldMap printPositioned (insertEmptyEachAt insert idx inputParsed) `shouldEqual` printPositioned expectedParsed
     _, _ -> fail "failed to parse"
+    

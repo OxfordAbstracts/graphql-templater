@@ -36,7 +36,7 @@ data Action id
 
 type Input id =
   { label :: String
-  , items :: Lazy (Array (DropdownItem id))
+  , items :: Array (DropdownItem id)
   }
 
 data DropdownItem id
@@ -59,7 +59,7 @@ type State id =
   }
 
 nestedDropdown
-  :: forall id m q
+  :: forall id m q 
    . MonadEffect m
   => Ord id
   => Show id
@@ -71,6 +71,7 @@ nestedDropdown =
     , eval: H.mkEval H.defaultEval
         { handleAction = handleAction
         , initialize = Just Init
+        , receive = Just <<< Receive
         }
     }
   where
@@ -97,7 +98,7 @@ nestedDropdown =
           ]
       , whenElem state.open \_ ->
           HH.div [ css "absolute flex z-10 mt-1 max-h-[32rem] w-auto" ] $
-            renderItems state [] state.path (force items)
+            renderItems state [] state.path items
       ]
 
   renderItems :: State id -> Array id -> Array id -> Array (DropdownItem id) -> Array (HH.HTML _ (Action id))
@@ -201,8 +202,10 @@ nestedDropdown =
   handleAction = case _ of
     Init -> pure unit
 
-    Receive _input ->
-      pure unit
+    Receive input ->
+      H.modify_ \st -> st 
+        { input = input 
+        }
 
     ToggleOpen -> H.modify_ \st ->
       st

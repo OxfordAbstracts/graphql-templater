@@ -1,4 +1,4 @@
-module GraphQL.TemplaterAst.Suggest where
+module GraphQL.Templater.Ast.Suggest where
 
 import Prelude
 
@@ -9,7 +9,7 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), maybe)
 import Data.Tuple (snd)
 import Data.Tuple.Nested ((/\))
-import GraphQL.Templater.Ast (Ast(..), VarPath(..), getPos)
+import GraphQL.Templater.Ast (Ast(..), VarPath(..))
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..), normalizePos, varPathToPosition)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), TypeMap, getTypeAtPath, getTypeMapFromTree)
@@ -27,8 +27,8 @@ type VarPathState =
   , possible :: Array String
   }
 
-getStartingState :: Int -> String -> List (Ast Positions) -> GqlTypeTree -> Maybe SuggestionState
-getStartingState idx template asts typeTree = Nothing
+-- getStartingState :: Int -> String -> List (Ast Positions) -> GqlTypeTree -> Maybe SuggestionState
+-- getStartingState idx template asts typeTree = Nothing
 
 getStartingSuggestions
   :: Int
@@ -59,7 +59,7 @@ getTypeMapAt idx asts typeTree = getTypeMapFromTree =<< getTypeAtPath keyPath ty
 
 getPathAt :: Int -> List (Ast Positions) -> List String
 getPathAt idx asts = getJsonPosPathAt idx asts # mapMaybe case _ of
-  Key key _ -> Just key
+  Key key _ -> Just key.name
   _ -> Nothing
 
 getJsonPosPathAt :: Int -> List (Ast Positions) -> List (NormalizedJsonPos Positions)

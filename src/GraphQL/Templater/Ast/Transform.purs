@@ -8,8 +8,7 @@ module GraphQL.Templater.Ast.Transform
   , insertVarPathAt
   , insertWithOfPathAt
   , modifyTextAt
-  )
-  where
+  ) where
 
 import Prelude
 
@@ -17,10 +16,10 @@ import Data.Array as Array
 import Data.Foldable (foldl)
 import Data.List (List(..), reverse, (:))
 import Data.List.Types (NonEmptyList)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe, fromMaybe', maybe, maybe')
 import Data.String as String
 import Data.String.CodeUnits (toCharArray)
-import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..))
+import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), getPos)
 import GraphQL.Templater.Ast.Print (printUnpositioned)
 import GraphQL.Templater.Positions (Positions)
 import Parsing (Position(..))
@@ -30,7 +29,10 @@ insertTextAt
   -> Int
   -> List (Ast Positions)
   -> Maybe (List (Ast Positions))
-insertTextAt text idx = modifyTextAt go idx
+insertTextAt text idx =
+  intersperseEmptyText
+    >>> modifyTextAt go idx
+    >>> map filterEmptyText
   where
   go existing positions@{ start: Position start } =
     let
@@ -55,6 +57,7 @@ insertEachOfPathAt path = insertEmptyEachAt'
       }
       unit
   )
+
 insertWithOfPathAt :: NonEmptyList String -> Int -> List (Ast Positions) -> Maybe (List (Ast Positions))
 insertWithOfPathAt path = insertEmptyWithAt'
   ( path <#> \field -> VarPathPart
@@ -140,7 +143,6 @@ modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reve
                             { index: end.index + (String.length newText - String.length text)
                             , line: start.line + getNewlines newText
                             , column: end.column + (getColumn newText - getColumn text)
-                            --  (Array.length $ Array.takeWhile (not eq '\n') (Array.reverse newChars)) + 1
                             }
                         }
                     }
@@ -177,11 +179,12 @@ modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reve
        }
   updateAsts input asts' = foldl go input asts'
 
-  { res, posChange } = updateAsts
-    { posChange: Nothing
-    , res: Nil
-    }
-    inputAsts
+  { res, posChange } =
+    updateAsts
+      { posChange: Nothing
+      , res: Nil
+      }
+      $ intersperseEmptyText inputAsts
 
 getNewlines :: String -> Int
 getNewlines = Array.length <<< Array.filter (eq '\n') <<< toCharArray
@@ -234,3 +237,34 @@ updateAstPositions { old, new } asts = asts <#> map
               }
           }
       | true -> positions
+
+intersperseEmptyText :: List (Ast Positions) -> List (Ast Positions)
+intersperseEmptyText = case _ of
+  Nil -> Nil
+  Cons ast@(Text _ _) rest -> Cons ast (intersperseEmptyText rest)
+  Cons last Nil -> nilText open : last : nilText { start: end, end } : Nil
+    where 
+    {open} = getPos last
+    end = getEndPosition last
+  Cons ast@(Var _ open) rest -> nilText open : ast : (intersperseEmptyText rest)
+  Cons (Each p inner open close) rest -> nilText open : (Each p (intersperseEmptyText inner) open close) : (intersperseEmptyText rest)
+  Cons (With p inner open close) rest -> nilText open : (With p (intersperseEmptyText inner) open close) : (intersperseEmptyText rest)
+
+  where
+  emptyPos { start } = { start, end: start }
+
+  nilText open = Text "" (emptyPos open)
+
+filterEmptyText :: List (Ast Positions) -> List (Ast Positions)
+filterEmptyText = case _ of
+  Nil -> Nil
+  Cons (Text "" _) rest -> filterEmptyText rest
+  Cons (Each p inner open close) rest -> (Each p (filterEmptyText inner) open close) : filterEmptyText rest
+  Cons (With p inner open close) rest -> (With p (filterEmptyText inner) open close) : filterEmptyText rest
+  Cons ast rest -> ast : filterEmptyText rest
+
+
+getEndPosition :: Ast Positions -> Position
+getEndPosition ast = maybe open.end _.end close 
+  where 
+  { open, close } = getPos ast
