@@ -3,7 +3,7 @@ module GraphQL.Templater.View.App.Gui where
 import Prelude
 
 import Data.Bifunctor (lmap)
-import Data.Lazy (force)
+import Data.Lazy (defer, force)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -68,7 +68,7 @@ gui state =
   startControls typeTree position =
     [ HH.slot (Proxy :: _ "insert_variable") unit nestedDropdown
         { label: "Insert variable"
-        , items:
+        , items: defer \_ ->
             let
               getDropdownsFromTypeMap tm = Map.toUnfoldable tm
                 <#> \(name /\ type_) ->
@@ -96,7 +96,7 @@ gui state =
         InsertVariable
     , HH.slot (Proxy :: _ "insert_each") unit nestedDropdown
         { label: "Insert each"
-        , items:
+        , items: defer \_ ->
             let
               getDropdownsFromTypeMap tm = Map.toUnfoldable tm
                 >>= \(name /\ type_) ->
@@ -135,7 +135,7 @@ gui state =
         InsertEach
     , HH.slot (Proxy :: _ "insert_with") unit nestedDropdown
         { label: "Insert with"
-        , items:
+        , items: defer \_ ->
             let
               getDropdownsFromTypeMap tm = Map.toUnfoldable tm
                 >>= \(name /\ type_) ->

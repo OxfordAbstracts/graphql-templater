@@ -36,7 +36,7 @@ data Action id
 
 type Input id =
   { label :: String
-  , items :: Array (DropdownItem id)
+  , items :: Lazy (Array (DropdownItem id))
   }
 
 data DropdownItem id
@@ -98,7 +98,7 @@ nestedDropdown =
           ]
       , whenElem state.open \_ ->
           HH.div [ css "absolute flex z-10 mt-1 max-h-[32rem] w-auto" ] $
-            renderItems state [] state.path items
+            renderItems state [] state.path $ force items
       ]
 
   renderItems :: State id -> Array id -> Array id -> Array (DropdownItem id) -> Array (HH.HTML _ (Action id))
