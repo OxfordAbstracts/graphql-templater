@@ -3,7 +3,7 @@ module GraphQL.Templater.View.App.Gui where
 import Prelude
 
 import Data.Bifunctor (lmap)
-import Data.Lazy (defer, force)
+import Data.Lazy (force)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -110,22 +110,12 @@ gui state =
                       NonNull t' -> isList' t'
                       _ -> false
                   in
-                    case getTypeMapFromTree returns of
-                      Just tm' -> pure
-                        $ NestedDropdown.Parent
-                            { label: name
-                            , id: name
-                            , selectable: isList
-                            , children: defer \_ -> getDropdownsFromTypeMap tm'
-                            }
-
-                      _ ->
-                        if isList then pure $
-                          NestedDropdown.Node
-                            { id: name
-                            , label: name
-                            }
-                        else []
+                    if isList then pure $
+                      NestedDropdown.Node
+                        { id: name
+                        , label: name
+                        }
+                    else []
 
             in
               getTypeMapAt position asts typeTree
@@ -149,22 +139,12 @@ gui state =
                       NonNull t' -> isObject' t'
                       _ -> false
                   in
-                    case getTypeMapFromTree returns of
-                      Just tm' -> pure
-                        $ NestedDropdown.Parent
-                            { label: name
-                            , id: name
-                            , selectable: isObject
-                            , children: defer \_ -> getDropdownsFromTypeMap tm'
-                            }
-
-                      _ ->
-                        if isObject then pure $
-                          NestedDropdown.Node
-                            { id: name
-                            , label: name
-                            }
-                        else []
+                    if isObject then pure $
+                      NestedDropdown.Node
+                        { id: name
+                        , label: name
+                        }
+                    else []
 
             in
               getTypeMapAt position asts typeTree
@@ -174,9 +154,8 @@ gui state =
         InsertWith
     ]
 
-
-toObj :: forall k v. Show k => Map k v -> Object v 
-toObj =  showKeys >>> Object.fromFoldableWithIndex
+toObj :: forall k v. Show k => Map k v -> Object v
+toObj = showKeys >>> Object.fromFoldableWithIndex
 
 showKeys :: forall k v. Show k => Map k v -> Map String v
 showKeys = (Map.toUnfoldable :: _ -> Array _) >>> map (lmap show) >>> Map.fromFoldable
