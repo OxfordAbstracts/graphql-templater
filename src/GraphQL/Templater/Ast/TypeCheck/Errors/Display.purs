@@ -58,7 +58,7 @@ displayPositionedError (TypeErrorWithPath typeError path _pos) = case typeError 
   nodeIdx = List.findIndex (getKey >>> isJust)
 
   getKey = case _ of
-    Key key _ -> Just $ getKeyStr key
+    Key key _ -> Just key.name
     _ -> Nothing
 
   getKeyAt idx = List.index reversed idx >>= getKey
