@@ -12,11 +12,10 @@ import Data.Tuple.Nested ((/\))
 import Effect.Class (class MonadEffect)
 import Foreign.Object (Object)
 import Foreign.Object as Object
-import GraphQL.Templater.Ast (Ast(..))
+import GraphQL.Templater.Ast (Ast(..), VarPath(..))
 import GraphQL.Templater.Ast.Suggest (getAstAt, getTypeMapAt)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeMapFromTree)
 import GraphQL.Templater.View.App.Types (Action(..), State)
-import GraphQL.Templater.View.Component.Editor as Editor
 import GraphQL.Templater.View.Component.NestedDropdown (nestedDropdown)
 import GraphQL.Templater.View.Component.NestedDropdown as NestedDropdown
 import GraphQL.Templater.View.Html.Utils (css)
@@ -31,9 +30,9 @@ gui
   => State
   -> HH.HTML
        ( H.ComponentSlot
-           ( "Editor" :: H.Slot Editor.Query Editor.Output Unit
-           , insert_each :: H.Slot q1 (Array String) Unit
+           ( insert_each :: H.Slot q1 (Array String) Unit
            , insert_variable :: H.Slot q2 (Array String) Unit
+           , edit_variable :: H.Slot q2 (Array String) Unit
            , insert_with :: H.Slot q3 (Array String) Unit
            | r
            )
@@ -43,7 +42,7 @@ gui
        Action
 gui state =
   HH.div
-    [ css "w-[16rem] m-2 p-2 rounded-md border border-gray-400"
+    [ css "w-[16rem] min-h-[16rem] m-2 p-2 rounded-md border border-gray-400"
     ]
     $
       case state.schemaTypeTree of
@@ -56,7 +55,11 @@ gui state =
               Just selectedAst ->
                 case selectedAst of
                   Text _ _ -> startControls typeTree position
-                  found -> [ HH.text $ "Not in text: " <> show found ]
+                  Var (VarPath var _) _pos -> 
+                    [ 
+
+                    ]
+                  found -> [ HH.text $ "Other ast: " <> show found ]
 
         _ ->
           [

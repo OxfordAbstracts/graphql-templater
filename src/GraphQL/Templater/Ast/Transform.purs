@@ -7,20 +7,24 @@ module GraphQL.Templater.Ast.Transform
   , insertVarAt'
   , insertVarPathAt
   , insertWithOfPathAt
+  , modifyAstStartingAt
   , modifyTextAt
   ) where
 
 import Prelude
 
 import Data.Array as Array
+import Data.Either (hush)
 import Data.Foldable (foldl)
 import Data.List (List(..), reverse, (:))
 import Data.List.Types (NonEmptyList)
-import Data.Maybe (Maybe(..), fromMaybe, fromMaybe', maybe, maybe')
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String as String
 import Data.String.CodeUnits (toCharArray)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), getPos)
-import GraphQL.Templater.Ast.Print (printUnpositioned)
+import GraphQL.Templater.Ast.Parser (parse)
+import GraphQL.Templater.Ast.Print (printPositioned, printUnpositioned)
+import GraphQL.Templater.Ast.Suggest (getStartColumn, getStartIdx, getStartLine)
 import GraphQL.Templater.Positions (Positions)
 import Parsing (Position(..))
 
@@ -105,6 +109,83 @@ insertVarAt' varPath = insertTextAt
       $ pure
       $ Var (VarPath varPath unit) unit
   )
+
+modifyAstStartingAt :: forall p. (Ast Positions -> List (Ast p)) -> Int -> List (Ast Positions) -> Maybe (List (Ast Positions))
+modifyAstStartingAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reverse res)
+  where
+  go
+    :: { posChange :: Maybe PosChange
+       , res :: List (Ast Positions)
+       }
+    -> Ast Positions
+    -> { posChange :: Maybe PosChange
+       , res :: List (Ast Positions)
+       }
+  go { res, posChange } ast = case posChange of
+    _ -> case ast of
+      _
+        | getStartIdx open == idx ->
+            let
+              text = printPositioned (pure ast)
+              newAst = fn ast
+              printed = printUnpositioned newAst
+              startIdx = getStartIdx open
+              startCol = getStartColumn open
+              startLine = getStartLine open
+              positioned =
+                parse printed
+                  # hush
+                  # fromMaybe (pure ast)
+                  <#> map \{ start, end } ->
+                    let
+                      Position start' = start
+                      Position end' = end
+                    in
+                      { start: Position
+                          { index: startIdx + start'.index
+                          , line: startLine + start'.line
+                          , column: startCol + start'.column
+                          }
+                      , end: Position
+                          { index: startIdx + end'.index
+                          , line: startLine + end'.line
+                          , column: startCol + end'.column
+                          }
+                      }
+
+            in
+              { res: positioned <> res
+              , posChange: Just
+                  { old: open
+                  , new:
+                      { start: open.start
+                      , end: Position -- TODO: this needs tests and is probably wrong
+                          { index: startIdx + (String.length printed - String.length text)
+                          , line: startLine + getNewlines printed
+                          , column: startCol + (getColumn printed - getColumn text)
+                          }
+                      }
+                  }
+              }
+      _ -> doNothing
+    where
+    { open } = getPos ast
+    doNothing =
+      { res: ast : res
+      , posChange
+      }
+
+  updateAsts
+    :: { posChange :: Maybe PosChange
+       , res :: List (Ast Positions)
+       }
+    -> List (Ast Positions)
+    -> { posChange :: Maybe PosChange
+       , res :: List (Ast Positions)
+       }
+  updateAsts input asts' = foldl go input asts'
+
+  { res, posChange } = updateAsts { res: Nil, posChange: Nothing } inputAsts
 
 modifyTextAt
   :: (String -> Positions -> (List (Ast Positions)))
@@ -243,8 +324,8 @@ intersperseEmptyText = case _ of
   Nil -> Nil
   Cons ast@(Text _ _) rest -> Cons ast (intersperseEmptyText rest)
   Cons last Nil -> nilText open : last : nilText { start: end, end } : Nil
-    where 
-    {open} = getPos last
+    where
+    { open } = getPos last
     end = getEndPosition last
   Cons ast@(Var _ open) rest -> nilText open : ast : (intersperseEmptyText rest)
   Cons (Each p inner open close) rest -> nilText open : (Each p (intersperseEmptyText inner) open close) : (intersperseEmptyText rest)
@@ -263,8 +344,7 @@ filterEmptyText = case _ of
   Cons (With p inner open close) rest -> (With p (filterEmptyText inner) open close) : filterEmptyText rest
   Cons ast rest -> ast : filterEmptyText rest
 
-
 getEndPosition :: Ast Positions -> Position
-getEndPosition ast = maybe open.end _.end close 
-  where 
+getEndPosition ast = maybe open.end _.end close
+  where
   { open, close } = getPos ast

@@ -115,5 +115,18 @@ isWithin idx open close = (idx >= getEndIdx open)
 getStartIdx :: Positions -> Int
 getStartIdx { start: Position { index } } = index
 
+getStartColumn :: Positions -> Int
+getStartColumn { start: Position { column } } = column
+
+getStartLine :: Positions -> Int
+getStartLine { start: Position { line } } = line
+
 getEndIdx :: Positions -> Int
 getEndIdx { end: Position { index } } = index
+
+getEndColumn :: Positions -> Int
+getEndColumn { end: Position { column } } = column
+
+getEndLine :: Positions -> Int
+getEndLine { end: Position { line } } = line
+
