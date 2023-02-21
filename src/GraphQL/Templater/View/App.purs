@@ -38,7 +38,7 @@ import GraphQL.Templater.GetSchema (getGqlDoc)
 import GraphQL.Templater.TypeDefs (getTypeTreeFromDoc)
 import GraphQL.Templater.View.App.Gui (gui)
 import GraphQL.Templater.View.App.Types (Action(..), State, TemplaterError)
-import GraphQL.Templater.View.Component.Editor (Diagnostic, getViewUpdateContent, getViewUpdateSelectionRanges)
+import GraphQL.Templater.View.Component.Editor (Diagnostic, Query(..), getViewUpdateContent, getViewUpdateSelectionRanges)
 import GraphQL.Templater.View.Component.Editor as Editor
 import GraphQL.Templater.View.Html.Utils (css)
 import Halogen (liftEffect)
@@ -173,10 +173,19 @@ component =
       case NonEmptyArray.fromArray path of
         Nothing -> pure unit
         Just path' -> do
-          let newAstMb = fn (toUnfoldable1 path') (fromMaybe (String.length template) cursorPosition) ast
+
+          let
+            pos = fromMaybe (String.length template) cursorPosition
+            newAstMb = fn (toUnfoldable1 path') pos ast
           case newAstMb of
             Nothing -> Console.error $ "Failed update with path " <> show path <> " at position " <> show cursorPosition <> "."
-            Just newAst -> handleNewAst newAst
+            Just newAst -> do
+              newTemplate <- handleNewAst newAst
+              H.tell _editor unit $ SetSelection
+                { anchor: pos
+                , head: pos + String.length newTemplate - String.length template
+                }
+              updateResult
 
     setCursorPosition viewUpdate = do
       ranges <- liftEffect $ getViewUpdateSelectionRanges viewUpdate
@@ -206,9 +215,11 @@ component =
         { ast = ast
         , template = template
         }
-
+      
       H.tell _editor unit $ Editor.SetContent template
-      updateResult
+
+      pure template
+      
 
     handleNewTemplate template = do
 

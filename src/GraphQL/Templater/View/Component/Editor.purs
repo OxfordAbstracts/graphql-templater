@@ -50,6 +50,7 @@ type Input =
 data Query a
   = GetContent (Maybe String -> a)
   | SetContent String a
+  | SetSelection { anchor :: Int, head :: Int } a
   | Relint (Array Diagnostic) a
 
 type State =
@@ -140,6 +141,12 @@ component =
         liftEffect $ setContent content view
       pure $ Just reply
 
+    SetSelection sel reply -> do
+      { view: viewMb } <- H.get
+      for_ viewMb \view -> do
+        liftEffect $ setSelection sel view
+      pure $ Just reply
+
     Relint lint reply -> do
       { view } <- H.get
       for_ view (relint lint)
@@ -163,6 +170,8 @@ foreign import makeView
 foreign import getViewContent :: EditorView -> Effect String
 
 foreign import setContent :: String -> EditorView -> Effect Unit
+
+foreign import setSelection :: { anchor :: Int, head :: Int } -> EditorView -> Effect Unit
 
 foreign import getViewUpdateContent :: ViewUpdate -> Effect String
 

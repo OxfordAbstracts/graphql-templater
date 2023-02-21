@@ -17,7 +17,7 @@ export const makeView =
           if (update.docChanged) {
             onChange(update)();
           }
-          if(update.selectionSet){
+          if (update.selectionSet) {
             onSelectionSet(update)();
           }
         }),
@@ -46,6 +46,17 @@ export const makeView =
 export const getViewContent = (view) => () => {
   return view.state.doc.toString();
 };
+
+export const setSelection =
+  ({ anchor, head }) =>
+  (view) =>
+  () => {
+    const transaction = view.state.update({
+      selection: { anchor, head },
+    });
+
+    view.dispatch(transaction);
+  };
 
 export const setContent = (content) => (view) => () => {
   const transaction = view.state.update({
