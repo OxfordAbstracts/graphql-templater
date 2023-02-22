@@ -1,10 +1,13 @@
 module GraphQL.Templater.Ast.Print
   ( printEach
   , printMapVarPath
+  , printMapVarPathPart
   , printPositioned
   , printUnpositioned
+  , printVarPartName
   , printWith
-  ) where
+  )
+  where
 
 import Prelude
 
@@ -26,6 +29,8 @@ printPositioned = displayPositionedPrintResult <<< printMapTemplateAsts
 -- | Print an AST, discarding the original positions of the tokens.
 printUnpositioned :: forall a. List (Ast a) -> String
 printUnpositioned = displayPrintResult <<< printMapTemplateAsts <<< map dummyPositions
+
+-- asUnpositioned fn = displayPrintResult <<< fn <<< map dummyPositions
 
 printMapTemplateAsts :: forall k. PrintKey k => List (Ast Positions) -> PrintResult k
 printMapTemplateAsts asts = combine $ map printMapTemplateAst asts
@@ -70,6 +75,7 @@ printWith varPath@(VarPath _ varPathPos) inner open close =
 printMapVarPath :: forall k. PrintKey k => VarPath Positions -> PrintResult k
 printMapVarPath (VarPath path _) = combine $ mapWithPrevious printMapVarPathPart (toList path)
 
+
 printMapVarPathPart :: forall k. PrintKey k => Maybe (VarPathPart Positions) -> VarPathPart Positions -> PrintResult k
 printMapVarPathPart prev (VarPathPart { name, args } {}) =
   combine
@@ -82,6 +88,9 @@ printMapVarPathPart prev (VarPathPart { name, args } {}) =
     Nothing -> empty
     Just (VarPathPart _ { end }) ->
       atStart end "."
+
+printVarPartName :: forall a. VarPartName a -> String
+printVarPartName = displayPrintResult <<< printMapVarPartName <<< dummyPositions
 
 printMapVarPartName :: forall k. PrintKey k => VarPartName Positions -> PrintResult k
 printMapVarPartName = case _ of

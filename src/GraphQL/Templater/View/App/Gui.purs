@@ -2,18 +2,24 @@ module GraphQL.Templater.View.App.Gui where
 
 import Prelude
 
+import Data.Array (mapWithIndex)
+import Data.Array as Array
 import Data.Bifunctor (lmap)
 import Data.Lazy (force)
+import Data.List.NonEmpty ((!!))
+import Data.List.NonEmpty as List.NonEmpty
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe, fromMaybe')
+import Data.String (joinWith)
 import Data.String as String
 import Data.Tuple.Nested ((/\))
 import Effect.Class (class MonadEffect)
 import Foreign.Object (Object)
 import Foreign.Object as Object
-import GraphQL.Templater.Ast (Ast(..), VarPath(..))
-import GraphQL.Templater.Ast.Suggest (getAstAt, getTypeMapAt)
+import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), getVartPathPartName)
+import GraphQL.Templater.Ast.Print (printVarPartName)
+import GraphQL.Templater.Ast.Suggest (getAstAt, getStartIdx, getTypeMapAt)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeMapFromTree)
 import GraphQL.Templater.View.App.Types (Action(..), State)
 import GraphQL.Templater.View.Component.NestedDropdown (nestedDropdown)
@@ -30,10 +36,11 @@ gui
   => State
   -> HH.HTML
        ( H.ComponentSlot
-           ( insert_each :: H.Slot q1 (Array String) Unit
-           , insert_variable :: H.Slot q2 (Array String) Unit
-           , edit_variable :: H.Slot q2 (Array String) Unit
-           , insert_with :: H.Slot q3 (Array String) Unit
+           ( insert_each :: H.Slot q1 (Array (VarPartName Unit)) Unit
+           , insert_variable :: H.Slot q2 (Array (VarPartName Unit)) Unit
+           , edit_variable :: H.Slot q2 (Array (VarPartName Unit)) Unit
+
+           , insert_with :: H.Slot q3 (Array (VarPartName Unit)) Unit
            | r
            )
            m
@@ -55,8 +62,56 @@ gui state =
               Just selectedAst ->
                 case selectedAst of
                   Text _ _ -> startControls typeTree position
-                  Var (VarPath var _) _pos -> 
-                    [ 
+                  Var (VarPath varPath _) pos ->
+                    [ let
+                        path = Array.fromFoldable $ void <<< getVartPathPartName <$> varPath
+
+                        setNewPath selectedPath _ = pure $ Var (VarPath newPath unit) unit
+                          where
+                          newPath = fromMaybe' (\_ -> void <$> varPath) $ List.NonEmpty.fromFoldable arrPath
+
+                          arrPath = selectedPath # mapWithIndex \pathIdx name ->
+                            VarPathPart
+                              { name
+                              , args: varPath !! pathIdx >>= \(VarPathPart current _) ->
+                                  if void current.name == name then
+                                    map void <$> current.args
+                                  else
+                                    Nothing
+                              }
+                              unit
+
+                      in
+                        HH.slot (Proxy :: Proxy "edit_variable") unit nestedDropdown
+                          { label: joinWith "." $ map printVarPartName path
+                          , path
+                          , items: defer \_ ->
+                              let
+                                getDropdownsFromTypeMap tm = Map.toUnfoldable tm
+                                  <#> \(name /\ type_) ->
+                                    let
+                                      { returns } = force type_
+                                    in
+                                      case getTypeMapFromTree returns of
+                                        Just tm' ->
+                                          NestedDropdown.Parent
+                                            { label: name
+                                            , id: VarPartNameGqlName name unit
+                                            , selectable: false
+                                            , children: defer \_ -> getDropdownsFromTypeMap tm'
+                                            }
+                                        _ ->
+                                          NestedDropdown.Node
+                                            { id: VarPartNameGqlName name unit
+                                            , label: name
+                                            }
+
+                              in
+                                getTypeMapAt position asts typeTree
+                                  # fromMaybe Map.empty
+                                  # getDropdownsFromTypeMap
+                          }
+                          (\newPath -> ModifyAstAt (setNewPath newPath) (getStartIdx pos))
 
                     ]
                   found -> [ HH.text $ "Other ast: " <> show found ]
@@ -69,8 +124,9 @@ gui state =
   asts = state.ast
 
   startControls typeTree position =
-    [ HH.slot (Proxy :: _ "insert_variable") unit nestedDropdown
+    [ HH.slot (Proxy :: Proxy "insert_variable") unit nestedDropdown
         { label: "Insert variable"
+        , path: []
         , items: defer \_ ->
             let
               getDropdownsFromTypeMap tm = Map.toUnfoldable tm
@@ -81,13 +137,13 @@ gui state =
                     case getTypeMapFromTree returns of
                       Just tm' -> NestedDropdown.Parent
                         { label: name
-                        , id: name
+                        , id: VarPartNameGqlName name unit
                         , selectable: false
                         , children: defer \_ -> getDropdownsFromTypeMap tm'
                         }
                       _ ->
                         NestedDropdown.Node
-                          { id: name
+                          { id: VarPartNameGqlName name unit
                           , label: name
                           }
 
@@ -97,8 +153,9 @@ gui state =
                 # getDropdownsFromTypeMap
         }
         InsertVariable
-    , HH.slot (Proxy :: _ "insert_each") unit nestedDropdown
+    , HH.slot (Proxy :: Proxy "insert_each") unit nestedDropdown
         { label: "Insert each"
+        , path: []
         , items: defer \_ ->
             let
               getDropdownsFromTypeMap tm = Map.toUnfoldable tm
@@ -115,7 +172,7 @@ gui state =
                   in
                     if isList then pure $
                       NestedDropdown.Node
-                        { id: name
+                        { id: VarPartNameGqlName name unit
                         , label: name
                         }
                     else []
@@ -126,8 +183,9 @@ gui state =
                 # getDropdownsFromTypeMap
         }
         InsertEach
-    , HH.slot (Proxy :: _ "insert_with") unit nestedDropdown
+    , HH.slot (Proxy :: Proxy "insert_with") unit nestedDropdown
         { label: "Insert with"
+        , path: []
         , items: defer \_ ->
             let
               getDropdownsFromTypeMap tm = Map.toUnfoldable tm
@@ -144,7 +202,7 @@ gui state =
                   in
                     if isObject then pure $
                       NestedDropdown.Node
-                        { id: name
+                        { id: VarPartNameGqlName name unit
                         , label: name
                         }
                     else []

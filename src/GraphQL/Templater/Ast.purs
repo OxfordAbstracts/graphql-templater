@@ -7,7 +7,9 @@ module GraphQL.Templater.Ast
   , VarPath(..)
   , VarPathPart(..)
   , getPos
-  ) where
+  , getVartPathPartName
+  )
+  where
 
 import Prelude
 
@@ -43,7 +45,6 @@ getPos = case _ of
   Each _ _ open close -> { open, close: Just close }
   With _ _ open close -> { open, close: Just close }
   Text _ open -> { open, close: Nothing }
-  
 
 type AstPos = Ast Positions
 
@@ -73,6 +74,9 @@ data VarPathPart a = VarPathPart
   , args :: Maybe (Args a)
   }
   a
+
+getVartPathPartName :: forall a. VarPathPart a -> VarPartName a
+getVartPathPartName (VarPathPart { name } _) = name
 
 derive instance Functor VarPathPart
 derive instance Foldable VarPathPart

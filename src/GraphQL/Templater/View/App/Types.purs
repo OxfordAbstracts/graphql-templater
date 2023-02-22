@@ -1,6 +1,6 @@
 module GraphQL.Templater.View.App.Types where
 
-
+import Prelude
 
 import Data.Argonaut.Core (Json)
 import Data.DateTime.Instant (Instant)
@@ -8,7 +8,7 @@ import Data.List (List)
 import Data.Map as Map
 import Data.Maybe (Maybe)
 import Effect.Ref (Ref)
-import GraphQL.Templater.Ast (AstPos)
+import GraphQL.Templater.Ast (Ast, AstPos, VarPartName(..))
 import GraphQL.Templater.TypeDefs (GqlTypeTree)
 import GraphQL.Templater.View.Autocomplete (AutocompleteState)
 import GraphQL.Templater.View.Component.Editor (ViewUpdate)
@@ -20,9 +20,10 @@ data Action
   | SetHeaders String
   | SetTemplate ViewUpdate
   | SetCursorPosition ViewUpdate
-  | InsertVariable (Array String)
-  | InsertEach (Array String)
-  | InsertWith (Array String)
+  | InsertVariable (Array (VarPartName Unit))
+  | InsertEach (Array (VarPartName Unit))
+  | InsertWith (Array (VarPartName Unit))
+  | ModifyAstAt (AstPos -> List (Ast Unit)) Int
 
 type State =
   { url :: String

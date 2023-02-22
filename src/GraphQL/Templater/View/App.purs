@@ -24,10 +24,10 @@ import Effect.Class.Console as Console
 import Effect.Exception (message)
 import Effect.Ref as Ref
 import Foreign.Object as Object
-import GraphQL.Templater.Ast (AstPos)
+import GraphQL.Templater.Ast (AstPos, VarPathPart(..))
 import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Ast.Print (printPositioned)
-import GraphQL.Templater.Ast.Transform (insertEachOfPathAt, insertVarPathAt, insertWithOfPathAt)
+import GraphQL.Templater.Ast.Transform (insertEmptyEachAt', insertEmptyWithAt', insertVarAt', modifyAstStartingAt)
 import GraphQL.Templater.Ast.TypeCheck (getTypeErrorsFromTree)
 import GraphQL.Templater.Ast.TypeCheck.Errors (TypeErrorWithPath(..))
 import GraphQL.Templater.Ast.TypeCheck.Errors.Display (displayPositionedError)
@@ -163,11 +163,22 @@ component =
       setCursorPosition viewUpdate
       template <- liftEffect $ getViewUpdateContent viewUpdate
       handleNewTemplate template
-    InsertVariable path -> updateAtPath insertVarPathAt path
-    InsertEach path -> updateAtPath insertEachOfPathAt path
-    InsertWith path -> updateAtPath insertWithOfPathAt path
+    InsertVariable path -> updateAtPath insertVarAt' (nameToPart path)
+    InsertEach path -> updateAtPath insertEmptyEachAt' (nameToPart path)
+    InsertWith path -> updateAtPath insertEmptyWithAt' (nameToPart path)
+
+    ModifyAstAt fn idx -> do
+      { ast } <- H.get
+      void $ handleNewAst $ modifyAstStartingAt fn idx ast
+      H.tell _editor unit $ SetSelection
+        { anchor: idx + 2
+        , head: idx + 2
+        }
+      updateResult
 
     where
+    nameToPart = map \name -> VarPathPart { name, args: Nothing } unit
+
     updateAtPath fn path = do
       { cursorPosition, template, ast } <- H.get
       case NonEmptyArray.fromArray path of
@@ -215,11 +226,10 @@ component =
         { ast = ast
         , template = template
         }
-      
+
       H.tell _editor unit $ Editor.SetContent template
 
       pure template
-      
 
     handleNewTemplate template = do
 

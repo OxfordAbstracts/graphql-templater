@@ -36,6 +36,7 @@ data Action id
 
 type Input id =
   { label :: String
+  , path :: Array id
   , items :: Lazy (Array (DropdownItem id))
   }
 
@@ -76,10 +77,10 @@ nestedDropdown =
     }
   where
   initialState :: Input id -> State id
-  initialState =
-    { input: _
+  initialState input =
+    { input
     , open: false
-    , path: []
+    , path: input.path
     , searches: Map.empty
     }
 

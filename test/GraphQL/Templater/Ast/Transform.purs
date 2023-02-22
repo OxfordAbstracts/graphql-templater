@@ -216,5 +216,5 @@ parseAndTestModifyAstStartingAt
 parseAndTestModifyAstStartingAt fn idx input expected =
   case parse input, parse expected of
     Right inputParsed, Right expectedParsed -> do
-      maybe "modifyAstStartingAt returned Nothing" printPositioned (modifyAstStartingAt fn idx inputParsed) `shouldEqual` printPositioned expectedParsed
+      printPositioned (modifyAstStartingAt fn idx inputParsed) `shouldEqual` printPositioned expectedParsed
     _, _ -> fail "failed to parse"

@@ -2,6 +2,7 @@ module GraphQL.Templater.Ast.Transform
   ( insertEachOfPathAt
   , insertEmptyEachAt
   , insertEmptyEachAt'
+  , insertEmptyWithAt'
   , insertSingleVarAt
   , insertTextAt
   , insertVarAt'
@@ -9,7 +10,8 @@ module GraphQL.Templater.Ast.Transform
   , insertWithOfPathAt
   , modifyAstStartingAt
   , modifyTextAt
-  ) where
+  )
+  where
 
 import Prelude
 
@@ -111,8 +113,9 @@ insertVarAt' varPath = insertTextAt
       $ Var (VarPath varPath unit) unit
   )
 
-modifyAstStartingAt :: forall p. (Ast Positions -> List (Ast p)) -> Int -> List (Ast Positions) -> Maybe (List (Ast Positions))
-modifyAstStartingAt fn idx inputAsts = Just $ reverse res
+modifyAstStartingAt :: forall p. (Ast Positions -> List (Ast p)) -> Int -> List (Ast Positions) -> List (Ast Positions)
+modifyAstStartingAt fn idx inputAsts = 
+  reverse (updateAsts { res: Nil, posChange: Nothing } inputAsts).res
   where
   go
     :: { posChange :: Maybe PosChange
@@ -208,7 +211,6 @@ modifyAstStartingAt fn idx inputAsts = Just $ reverse res
        }
   updateAsts input asts' = foldl go input asts'
 
-  { res } = updateAsts { res: Nil, posChange: Nothing } inputAsts
 
 modifyTextAt
   :: (String -> Positions -> (List (Ast Positions)))
