@@ -60,7 +60,7 @@ type State id =
   }
 
 nestedDropdown
-  :: forall id m q 
+  :: forall id m q
    . MonadEffect m
   => Ord id
   => Show id
@@ -98,8 +98,9 @@ nestedDropdown =
               ]
           ]
       , whenElem state.open \_ ->
-          HH.div [ css "absolute flex z-10 mt-1 max-h-[32rem] w-auto" ] $
-            renderItems state [] state.path $ force items
+          HH.div [ css "absolute flex z-10 mt-1 max-h-[32rem] w-auto" ]
+            $ renderItems state [] state.path
+            $ force items
       ]
 
   renderItems :: State id -> Array id -> Array id -> Array (DropdownItem id) -> Array (HH.HTML _ (Action id))
@@ -204,8 +205,8 @@ nestedDropdown =
     Init -> pure unit
 
     Receive input ->
-      H.modify_ \st -> st 
-        { input = input 
+      H.modify_ \st -> st
+        { input = input
         }
 
     ToggleOpen -> H.modify_ \st ->

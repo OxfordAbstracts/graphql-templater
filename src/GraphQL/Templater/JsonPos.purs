@@ -23,11 +23,9 @@ data NormalizedJsonPos a
       a
   | Index Int a
 
-
 data JsonPosWoAlias a = WoAliasKey String a | WoAliasIndex Int a
 
-
-removeAlias :: forall a. NormalizedJsonPos a -> JsonPosWoAlias a 
+removeAlias :: forall a. NormalizedJsonPos a -> JsonPosWoAlias a
 removeAlias = case _ of
   Key { name, alias: _ } a -> WoAliasKey name a
   Index idx a -> WoAliasIndex idx a
@@ -65,7 +63,6 @@ getKey args name = { name, alias: getAlias name args }
 
 getKeyStr :: { name :: String, alias :: Maybe String } -> String
 getKeyStr key = fromMaybe key.name key.alias
-
 
 derive instance Generic (JsonPos a) _
 

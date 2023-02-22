@@ -6,8 +6,7 @@ module GraphQL.Templater.Ast.Print
   , printUnpositioned
   , printVarPartName
   , printWith
-  )
-  where
+  ) where
 
 import Prelude
 
@@ -74,7 +73,6 @@ printWith varPath@(VarPath _ varPathPos) inner open close =
 
 printMapVarPath :: forall k. PrintKey k => VarPath Positions -> PrintResult k
 printMapVarPath (VarPath path _) = combine $ mapWithPrevious printMapVarPathPart (toList path)
-
 
 printMapVarPathPart :: forall k. PrintKey k => Maybe (VarPathPart Positions) -> VarPathPart Positions -> PrintResult k
 printMapVarPathPart prev (VarPathPart { name, args } {}) =

@@ -145,11 +145,11 @@ spec = do
         parseAndTestModifyAstStartingAt
           ( const $ pure $ Var
               ( VarPath
-                  (pure $ VarPathPart
-                          { args: Nothing
-                          , name: VarPartNameGqlName "newvar" unit
-                          }
-                          unit
+                  ( pure $ VarPathPart
+                      { args: Nothing
+                      , name: VarPartNameGqlName "newvar" unit
+                      }
+                      unit
                   )
                   unit
               )

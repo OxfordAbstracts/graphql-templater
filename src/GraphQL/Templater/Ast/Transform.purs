@@ -10,8 +10,7 @@ module GraphQL.Templater.Ast.Transform
   , insertWithOfPathAt
   , modifyAstStartingAt
   , modifyTextAt
-  )
-  where
+  ) where
 
 import Prelude
 
@@ -114,7 +113,7 @@ insertVarAt' varPath = insertTextAt
   )
 
 modifyAstStartingAt :: forall p. (Ast Positions -> List (Ast p)) -> Int -> List (Ast Positions) -> List (Ast Positions)
-modifyAstStartingAt fn idx inputAsts = 
+modifyAstStartingAt fn idx inputAsts =
   reverse (updateAsts { res: Nil, posChange: Nothing } inputAsts).res
   where
   go
@@ -210,7 +209,6 @@ modifyAstStartingAt fn idx inputAsts =
        , res :: List (Ast Positions)
        }
   updateAsts input asts' = foldl go input asts'
-
 
 modifyTextAt
   :: (String -> Positions -> (List (Ast Positions)))

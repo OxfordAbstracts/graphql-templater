@@ -8,8 +8,7 @@ module GraphQL.Templater.Ast
   , VarPathPart(..)
   , getPos
   , getVartPathPartName
-  )
-  where
+  ) where
 
 import Prelude
 

@@ -56,7 +56,6 @@ interpolate = go Nil
         lookupArr idx = caseJsonArray jsonNull \arr ->
           fromMaybe jsonNull $ arr !! idx
 
-
 displayJson :: forall a. List (JsonPos a) -> Json -> String
 displayJson path j = caseJson
   (const "")
