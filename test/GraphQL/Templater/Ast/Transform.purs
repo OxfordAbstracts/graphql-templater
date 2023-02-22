@@ -10,10 +10,10 @@ import Data.List (List(..), foldMap, (:))
 import Data.Maybe (Maybe(..), maybe)
 import Effect.Class (class MonadEffect)
 import Effect.Exception (Error)
-import GraphQL.Templater.Ast (Ast(..))
+import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), VarPathPart(..))
 import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Ast.Print (printPositioned)
-import GraphQL.Templater.Ast.Transform (insertEmptyEachAt, insertTextAt)
+import GraphQL.Templater.Ast.Transform (insertEmptyEachAt, insertTextAt, modifyAstStartingAt)
 import Parsing (Position(..))
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual)
@@ -137,6 +137,60 @@ spec = do
           "  "
           " {{#each list}}{{/each}} "
 
+    describe "modifyAstStartingAt" do
+      it "should replace a text only ast" do
+        parseAndTestModifyAstStartingAt (const $ pure $ Text "new" unit) 0 "old" "new"
+
+      it "should replace a var" do
+        parseAndTestModifyAstStartingAt
+          ( const $ pure $ Var
+              ( VarPath
+                  (pure $ VarPathPart
+                          { args: Nothing
+                          , name: VarPartNameGqlName "newvar" unit
+                          }
+                          unit
+                  )
+                  unit
+              )
+              unit
+          )
+          6
+          "before{{var}}after"
+          "before{{newvar}}after"
+
+      it "should delete a var" do
+        parseAndTestModifyAstStartingAt
+          ( const Nil
+          )
+          6
+          "before{{var}}after"
+          "beforeafter"
+
+      it "should double a var" do
+        parseAndTestModifyAstStartingAt
+          ( \ast -> pure ast <> pure ast
+          )
+          6
+          "before{{var}}after{{othervar}}"
+          "before{{var}}{{var}}after{{othervar}}"
+
+      it "should delete a var in an each" do
+        parseAndTestModifyAstStartingAt
+          ( const Nil
+          )
+          20
+          "{{#each list}}before{{var}}after{{/each}}}"
+          "{{#each list}}beforeafter{{/each}}}"
+
+      it "should double a var in a with" do
+        parseAndTestModifyAstStartingAt
+          ( \ast -> pure ast <> pure ast
+          )
+          20
+          "{{#with objt}}before{{var}}after{{/with}}}"
+          "{{#with objt}}before{{var}}{{var}}after{{/with}}}"
+
 parseAndTestInsertTextAt :: forall m. MonadEffect m => MonadThrow Error m => String -> Int -> String -> String -> m Unit
 parseAndTestInsertTextAt insert idx input expected =
   case parse input, parse expected of
@@ -150,4 +204,17 @@ parseAndTestInsertEmptyEachAt insert idx input expected =
     Right inputParsed, Right expectedParsed -> do
       foldMap printPositioned (insertEmptyEachAt insert idx inputParsed) `shouldEqual` printPositioned expectedParsed
     _, _ -> fail "failed to parse"
-    
+
+parseAndTestModifyAstStartingAt
+  :: forall m p
+   . MonadThrow Error m
+  => (AstPos -> List (Ast p))
+  -> Int
+  -> String
+  -> String
+  -> m Unit
+parseAndTestModifyAstStartingAt fn idx input expected =
+  case parse input, parse expected of
+    Right inputParsed, Right expectedParsed -> do
+      maybe "modifyAstStartingAt returned Nothing" printPositioned (modifyAstStartingAt fn idx inputParsed) `shouldEqual` printPositioned expectedParsed
+    _, _ -> fail "failed to parse"

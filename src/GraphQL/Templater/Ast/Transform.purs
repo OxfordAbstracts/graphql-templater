@@ -17,13 +17,14 @@ import Data.Array as Array
 import Data.Either (hush)
 import Data.Foldable (foldl)
 import Data.List (List(..), reverse, (:))
+import Data.List as List
 import Data.List.Types (NonEmptyList)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String as String
 import Data.String.CodeUnits (toCharArray)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), getPos)
 import GraphQL.Templater.Ast.Parser (parse)
-import GraphQL.Templater.Ast.Print (printPositioned, printUnpositioned)
+import GraphQL.Templater.Ast.Print (printUnpositioned)
 import GraphQL.Templater.Ast.Suggest (getStartColumn, getStartIdx, getStartLine)
 import GraphQL.Templater.Positions (Positions)
 import Parsing (Position(..))
@@ -111,7 +112,7 @@ insertVarAt' varPath = insertTextAt
   )
 
 modifyAstStartingAt :: forall p. (Ast Positions -> List (Ast p)) -> Int -> List (Ast Positions) -> Maybe (List (Ast Positions))
-modifyAstStartingAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reverse res)
+modifyAstStartingAt fn idx inputAsts = Just $ reverse res
   where
   go
     :: { posChange :: Maybe PosChange
@@ -122,11 +123,10 @@ modifyAstStartingAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions p
        , res :: List (Ast Positions)
        }
   go { res, posChange } ast = case posChange of
-    _ -> case ast of
+    Nothing -> case ast of
       _
         | getStartIdx open == idx ->
             let
-              text = printPositioned (pure ast)
               newAst = fn ast
               printed = printUnpositioned newAst
               startIdx = getStartIdx open
@@ -159,15 +159,38 @@ modifyAstStartingAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions p
                   { old: open
                   , new:
                       { start: open.start
-                      , end: Position -- TODO: this needs tests and is probably wrong
-                          { index: startIdx + (String.length printed - String.length text)
-                          , line: startLine + getNewlines printed
-                          , column: startCol + (getColumn printed - getColumn text)
-                          }
+                      , end: maybe open.start (getPos >>> _.open.end) $ List.last positioned
                       }
                   }
               }
-      _ -> doNothing
+      Each v inner open close ->
+        { res: Each v (reverse innerRes.res) open close' : res
+        , posChange: innerRes.posChange
+        }
+        where
+        innerRes = updateAsts { res, posChange } inner
+        close' = case innerRes.posChange of
+          Nothing -> close
+          Just pc -> updateAstPosition pc close
+
+      With v inner open close ->
+        { res: With v (reverse innerRes.res) open close' : res
+        , posChange: innerRes.posChange
+        }
+        where
+        innerRes = updateAsts { res, posChange } inner
+        close' = case innerRes.posChange of
+          Nothing -> close
+          Just pc -> updateAstPosition pc close
+
+      Var _ _ -> doNothing
+      Text _ _ -> doNothing
+
+    Just { old, new } ->
+      { res: map (updateAstPosition { old, new }) ast : res
+      , posChange
+      }
+
     where
     { open } = getPos ast
     doNothing =
@@ -185,7 +208,7 @@ modifyAstStartingAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions p
        }
   updateAsts input asts' = foldl go input asts'
 
-  { res, posChange } = updateAsts { res: Nil, posChange: Nothing } inputAsts
+  { res } = updateAsts { res: Nil, posChange: Nothing } inputAsts
 
 modifyTextAt
   :: (String -> Positions -> (List (Ast Positions)))
@@ -276,7 +299,10 @@ getColumn = Array.length <<< Array.takeWhile (not eq '\n') <<< Array.reverse <<<
 type PosChange = { old :: Positions, new :: Positions }
 
 updateAstPositions :: PosChange -> List (Ast Positions) -> List (Ast Positions)
-updateAstPositions { old, new } asts = asts <#> map
+updateAstPositions { old, new } asts = asts <#> map (updateAstPosition { old, new })
+
+updateAstPosition :: PosChange -> Positions -> Positions
+updateAstPosition { old, new } =
   ( updateStartColumn
       >>> updateEndColumn
       >>> updateIndexAndLine
