@@ -182,8 +182,8 @@ component =
             Just newAst -> do
               newTemplate <- handleNewAst newAst
               H.tell _editor unit $ SetSelection
-                { anchor: pos
-                , head: pos + String.length newTemplate - String.length template
+                { anchor: pos + 2
+                , head: pos + String.length newTemplate - String.length template - 2
                 }
               updateResult
 
