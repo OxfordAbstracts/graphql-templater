@@ -8,7 +8,8 @@
   },
   "scripts": {
     "serve": "spago build && esbuild --bundle index.js --servedir=dist",
-    "dev": "npx tailwindcss -i ./css/main.css -o ./dist/output.css --watch & node dev",
+    "dev": "node dev",
+    "css" : "npx tailwindcss -i ./css/main.css -o ./dist/output.css --watch",
     "format": "purs-tidy format-in-place src test",
     "test": "spago test"
   },
