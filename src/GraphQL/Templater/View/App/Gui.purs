@@ -77,49 +77,49 @@ gui state =
                   Var vp pos ->
                     [ let
                         path = varPathToDropdownPath vp
-                        setNewVar selectedPath _ = pure $ Var (dropdownPathToVarPath vp selectedPath) unit
+                        setNewVarPath selectedPath _ = pure $ Var (dropdownPathToVarPath vp selectedPath) unit
                       in
                         HH.slot (Proxy :: Proxy "edit_variable") { pos, vp } nestedDropdown
-                          { label: joinWith "." $ map printVarPartName path
+                          { label: printPath path
                           , path
                           , items: defer \_ ->
                               getTypeMapAt position asts typeTree
                                 # fromMaybe Map.empty
                                 # getVariableItems
                           }
-                          \selectedPath -> ModifyAstAt (setNewVar selectedPath) (getStartIdx pos)
+                          \selectedPath -> ModifyAstAt (setNewVarPath selectedPath) (getStartIdx pos)
                     ]
 
                   Each vp inner pos _close ->
                     [ let
                         path = varPathToDropdownPath vp
-                        setNewVar selectedPath _ = pure $ Each (dropdownPathToVarPath vp selectedPath) (void <$> inner) unit unit
+                        setNewVarPath selectedPath _ = pure $ Each (dropdownPathToVarPath vp selectedPath) (void <$> inner) unit unit
                       in
                         HH.slot (Proxy :: Proxy "edit_each") { pos, vp } nestedDropdown
-                          { label: "#each " <> (joinWith "." $ map printVarPartName path)
+                          { label: "#each " <> (printPath path)
                           , path
                           , items: defer \_ ->
                               getTypeMapAt position asts typeTree
                                 # fromMaybe Map.empty
                                 # getEachItems
                           }
-                          \selectedPath -> ModifyAstAt (setNewVar selectedPath) (getStartIdx pos)
+                          \selectedPath -> ModifyAstAt (setNewVarPath selectedPath) (getStartIdx pos)
 
                     ]
                   With vp inner pos _close ->
                     [ let
                         path = varPathToDropdownPath vp
-                        setNewVar selectedPath _ = pure $ With (dropdownPathToVarPath vp selectedPath) (void <$> inner) unit unit
+                        setNewVarPath selectedPath _ = pure $ With (dropdownPathToVarPath vp selectedPath) (void <$> inner) unit unit
                       in
                         HH.slot (Proxy :: Proxy "edit_with") { pos, vp } nestedDropdown
-                          { label: "#with " <> (joinWith "." $ map printVarPartName path)
+                          { label: "#with " <> (printPath path)
                           , path
                           , items: defer \_ ->
                               getTypeMapAt position asts typeTree
                                 # fromMaybe Map.empty
                                 # getWithItems
                           }
-                          \selectedPath -> ModifyAstAt (setNewVar selectedPath) (getStartIdx pos)
+                          \selectedPath -> ModifyAstAt (setNewVarPath selectedPath) (getStartIdx pos)
 
                     ]
 
@@ -234,3 +234,6 @@ dropdownPathToVarPath (VarPath varPath _) selectedPath = (VarPath newPath unit)
 
 varPathToDropdownPath :: forall p. VarPath p -> Array (VarPartName Unit)
 varPathToDropdownPath (VarPath varPath _) = Array.fromFoldable $ void <<< getVartPathPartName <$> varPath
+
+printPath :: forall a. Array (VarPartName a) -> String
+printPath path = joinWith "." $ map printVarPartName path
