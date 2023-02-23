@@ -151,7 +151,7 @@ nestedDropdown =
           let
             itemCss selectable selected =
               "text-gray-900 relative flex w-full justify-between select-none py-2 pl-3 pr-3 "
-                <> guard selectable " cursor-pointer"
+                <> guard selectable " cursor-pointer font-bold"
                 <> (if selected then " bg-blue-200" else " hover:bg-blue-100")
 
           in
@@ -170,7 +170,7 @@ nestedDropdown =
                   newPath = currentPath <> [ id ]
                 in
                   HH.li
-                    ( [ css $ itemCss true (isSelected id)
+                    ( [ css $ itemCss selectable (isSelected id)
                       , HE.onMouseEnter (SetPath newPath)
                       ]
                         <> guard selectable

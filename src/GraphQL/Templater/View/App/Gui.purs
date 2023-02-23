@@ -20,6 +20,7 @@ import Foreign.Object as Object
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), getVartPathPartName)
 import GraphQL.Templater.Ast.Print (printVarPartName)
 import GraphQL.Templater.Ast.Suggest (getAstAt, getStartIdx, getTypeMapAt)
+import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeMapFromTree)
 import GraphQL.Templater.View.App.Types (Action(..), State)
 import GraphQL.Templater.View.Component.NestedDropdown (nestedDropdown)
@@ -38,8 +39,11 @@ gui
        ( H.ComponentSlot
            ( insert_each :: H.Slot q1 (Array (VarPartName Unit)) Unit
            , insert_variable :: H.Slot q2 (Array (VarPartName Unit)) Unit
-           , edit_variable :: H.Slot q2 (Array (VarPartName Unit)) Unit
-
+           , edit_variable ::
+               H.Slot q2 (Array (VarPartName Unit))
+                 { pos :: Positions
+                 , vp :: VarPath Positions
+                 }
            , insert_with :: H.Slot q3 (Array (VarPartName Unit)) Unit
            | r
            )
@@ -62,7 +66,7 @@ gui state =
               Just selectedAst ->
                 case selectedAst of
                   Text _ _ -> startControls typeTree position
-                  Var (VarPath varPath _) pos ->
+                  Var vp@(VarPath varPath _) pos ->
                     [ let
                         path = Array.fromFoldable $ void <<< getVartPathPartName <$> varPath
 
@@ -82,7 +86,7 @@ gui state =
                               unit
 
                       in
-                        HH.slot (Proxy :: Proxy "edit_variable") unit nestedDropdown
+                        HH.slot (Proxy :: Proxy "edit_variable") { pos, vp } nestedDropdown
                           { label: joinWith "." $ map printVarPartName path
                           , path
                           , items: defer \_ ->
