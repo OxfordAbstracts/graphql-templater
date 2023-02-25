@@ -4,7 +4,7 @@ import Prelude
 
 import Affjax.RequestHeader (RequestHeader(..))
 import Control.Monad.Error.Class (try)
-import Data.Array (mapMaybe)
+import Data.Array (last, mapMaybe)
 import Data.Array as Array
 import Data.Array.NonEmpty (toUnfoldable1)
 import Data.Array.NonEmpty as NonEmpty
@@ -19,7 +19,6 @@ import Data.String (Pattern(..), joinWith, split)
 import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
-import Data.Tuple.Nested ((/\))
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class.Console as Console
 import Effect.Exception (message)
@@ -249,10 +248,10 @@ component =
             , to: maybe (from + 1) getIndex err.to
             }
 
-        relint errs = pure unit --  H.tell _editor unit $ Editor.Relint $ Array.fromFoldable $ map toDiagnostic errs
+        relint errs = H.tell _editor unit $ Editor.Relint $ Array.fromFoldable $ map toDiagnostic errs
 
       case parse template of
-        Left (ParseError message (Position {index: pos})) -> do
+        Left (ParseError message (Position { index: pos })) -> do
           { errors } <- H.modify _
             { errors = pure
                 { from: pos
@@ -306,15 +305,14 @@ foreign import initialUrl :: String
 foreign import initialHeaders :: String
 foreign import initialQuery :: String
 
-
 getPositionAt :: String -> Int -> Position
 getPositionAt str index =
   let
-    {before, after} = String.splitAt index str
-    count p s = split p s # Array.length
+    before = String.take index str
+    lines = split (Pattern "\n") before
   in
-   Position
-    { index
-    , line: count (Pattern "\n") before
-    , column: String.length before - count (Pattern "\n") before
-    }
+    Position
+      { index
+      , line: 1 + Array.length lines
+      , column: 1 + (last lines # maybe 0 String.length)
+      }

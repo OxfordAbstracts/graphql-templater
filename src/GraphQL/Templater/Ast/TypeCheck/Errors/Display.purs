@@ -9,7 +9,7 @@ import Data.List.NonEmpty as NonEmptyList
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Set as Set
 import GraphQL.Templater.Ast.TypeCheck.Errors (ArgTypeError(..), MismatchReason(..), TypeError(..), TypeErrorWithPath(..))
-import GraphQL.Templater.JsonPos (NormalizedJsonPos(..), getKeyStr)
+import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
 import GraphQL.Templater.LevenshteinDistance (closest)
 
 displayPositionedError :: forall a. TypeErrorWithPath a -> String

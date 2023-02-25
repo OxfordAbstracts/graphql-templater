@@ -13,7 +13,6 @@ import GraphQL.Templater.Ast (Ast(..), VarPath(..))
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..), normalizePos, varPathToPosition)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), TypeMap, getTypeAtPath, getTypeMapFromTree)
-import Parsing (Position(..))
 
 data SuggestionState
   = Start
