@@ -247,9 +247,9 @@ modifyTextAt fn idx inputAsts = Just $
         close' = case innerRes.posChange of
           Nothing -> close
           Just pc -> updateAstPosition pc close
-          
+
       With v inner open close ->
-        { res:  With v (reverse innerRes.res) open close' : res
+        { res: With v (reverse innerRes.res) open close' : res
         , posChange: innerRes.posChange
         }
         where
@@ -279,7 +279,6 @@ modifyTextAt fn idx inputAsts = Just $
        , res :: List (Ast Positions)
        }
   updateAsts input = foldl go input
-
 
 type PosChange = { old :: { start :: Int, end :: Int }, new :: { start :: Int, end :: Int } }
 

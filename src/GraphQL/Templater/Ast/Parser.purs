@@ -76,20 +76,20 @@ astParser = oneOf
     pure $
       With varPath asts open close
 
-    -- openStart <- position
-    -- _ <- try $ string withOpen
-    -- skipSpaces
-    -- varPath <- varPathParser
-    -- skipSpaces
-    -- _ <- string closeVar
-    -- openEnd <- position
-    -- asts <- manyTill astParser (lookAhead $ string withClose)
-    -- closeStart <- position
-    -- _ <- string withClose
-    -- closeEnd <- position
-    -- pure $ With varPath asts
-    --   ""
-    --   ""
+  -- openStart <- position
+  -- _ <- try $ string withOpen
+  -- skipSpaces
+  -- varPath <- varPathParser
+  -- skipSpaces
+  -- _ <- string closeVar
+  -- openEnd <- position
+  -- asts <- manyTill astParser (lookAhead $ string withClose)
+  -- closeStart <- position
+  -- _ <- string withClose
+  -- closeEnd <- position
+  -- pure $ With varPath asts
+  --   ""
+  --   ""
 
   textP = withPositions do
     chars <- try $ many1Till anyChar (lookAhead $ void (string openVar) <|> eof)

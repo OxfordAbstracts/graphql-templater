@@ -6,7 +6,6 @@ import Data.List (List(..), (:))
 import Data.Maybe (Maybe(..))
 import GraphQL.Templater.Positions (Positions)
 
-
 mapWithPrevious :: forall a b. (Maybe a -> a -> b) -> List a -> List b
 mapWithPrevious f = go Nothing
   where
