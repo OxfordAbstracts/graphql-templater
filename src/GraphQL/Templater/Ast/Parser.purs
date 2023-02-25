@@ -12,12 +12,13 @@ import Data.Foldable (oneOf)
 import Data.GraphQL.Parser (listish)
 import Data.GraphQL.Parser as GqlParser
 import Data.List (List)
+import Data.Tuple (Tuple(..))
 import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), VarPathPart(..))
 import GraphQL.Templater.Ast.Argument.Parser (argument, value)
-import GraphQL.Templater.Ast.ParseUtils (toString, withPositions)
+import GraphQL.Templater.Ast.ParseUtils (andPositions, toString, withPositions)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.Tokens (closeVar, eachClose, eachOpen, openVar, parent, root, withClose, withOpen)
-import Parsing (ParseError, Parser, position, runParser)
+import Parsing (ParseError, Parser, runParser)
 import Parsing.Combinators (lookAhead, many1Till, manyTill, optionMaybe, sepEndBy1, try, (<|>))
 import Parsing.String (anyChar, char, eof, string)
 import Parsing.String.Basic (skipSpaces)
@@ -44,36 +45,51 @@ astParser = oneOf
     pure $ Var varPath
 
   eachP = do
-    openStart <- position
-    _ <- try $ string eachOpen
-    skipSpaces
-    varPath <- varPathParser
-    skipSpaces
-    _ <- string closeVar
-    openEnd <- position
+    Tuple open varPath <- andPositions do
+      _ <- try $ string eachOpen
+      skipSpaces
+      varPath <- varPathParser
+      skipSpaces
+      _ <- string closeVar
+      pure varPath
+
     asts <- manyTill astParser (lookAhead $ string eachClose)
-    closeStart <- position
-    _ <- string eachClose
-    closeEnd <- position
-    pure $ Each varPath asts
-      { start: openStart, end: openEnd }
-      { start: closeStart, end: closeEnd }
+
+    Tuple close _ <- andPositions $ string eachClose
+
+    pure $
+      Each varPath asts open close
 
   withP = do
-    openStart <- position
-    _ <- try $ string withOpen
-    skipSpaces
-    varPath <- varPathParser
-    skipSpaces
-    _ <- string closeVar
-    openEnd <- position
+    Tuple open varPath <- andPositions do
+      _ <- try $ string withOpen
+      skipSpaces
+      varPath <- varPathParser
+      skipSpaces
+      _ <- string closeVar
+      pure varPath
+
     asts <- manyTill astParser (lookAhead $ string withClose)
-    closeStart <- position
-    _ <- string withClose
-    closeEnd <- position
-    pure $ With varPath asts
-      { start: openStart, end: openEnd }
-      { start: closeStart, end: closeEnd }
+
+    Tuple close _ <- andPositions $ string withClose
+
+    pure $
+      With varPath asts open close
+
+    -- openStart <- position
+    -- _ <- try $ string withOpen
+    -- skipSpaces
+    -- varPath <- varPathParser
+    -- skipSpaces
+    -- _ <- string closeVar
+    -- openEnd <- position
+    -- asts <- manyTill astParser (lookAhead $ string withClose)
+    -- closeStart <- position
+    -- _ <- string withClose
+    -- closeEnd <- position
+    -- pure $ With varPath asts
+    --   ""
+    --   ""
 
   textP = withPositions do
     chars <- try $ many1Till anyChar (lookAhead $ void (string openVar) <|> eof)

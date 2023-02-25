@@ -2,7 +2,9 @@ module GraphQL.Templater.Positions where
 
 import Parsing (Position)
 
-type Positions = { start :: Position, end :: Position }
+type Positions =
+  { start :: Int
+  , end :: Int
+  , str :: String
+  }
 
--- getStartIdx :: Positions -> Int
--- getStartId

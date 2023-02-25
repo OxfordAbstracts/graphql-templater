@@ -19,6 +19,7 @@ import Data.String (Pattern(..), joinWith, split)
 import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
+import Data.Tuple.Nested ((/\))
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class.Console as Console
 import Effect.Exception (message)
@@ -114,7 +115,7 @@ component =
             [ HH.text "Errors:"
             , HH.ul_ $ Array.fromFoldable state.errors <#> \{ from, message } ->
                 HH.li [ css "whitespace-pre-wrap border-2 rounded-md p-1 m-2" ]
-                  [ HH.text $ joinWith "\n" $ parseErrorHuman state.template 64 $ ParseError message from ]
+                  [ HH.text $ joinWith "\n" $ parseErrorHuman state.template 64 $ ParseError message (getPositionAt state.template from) ]
             ]
         else
           HH.text ""
@@ -239,7 +240,7 @@ component =
         toDiagnostic :: TemplaterError -> Diagnostic
         toDiagnostic err =
           let
-            getIndex (Position { index }) = index
+            getIndex index = index
             from = getIndex err.from
           in
             { from
@@ -248,10 +249,10 @@ component =
             , to: maybe (from + 1) getIndex err.to
             }
 
-        relint errs = H.tell _editor unit $ Editor.Relint $ Array.fromFoldable $ map toDiagnostic errs
+        relint errs = pure unit --  H.tell _editor unit $ Editor.Relint $ Array.fromFoldable $ map toDiagnostic errs
 
       case parse template of
-        Left (ParseError message pos) -> do
+        Left (ParseError message (Position {index: pos})) -> do
           { errors } <- H.modify _
             { errors = pure
                 { from: pos
@@ -304,3 +305,16 @@ _editor = Proxy :: Proxy "Editor"
 foreign import initialUrl :: String
 foreign import initialHeaders :: String
 foreign import initialQuery :: String
+
+
+getPositionAt :: String -> Int -> Position
+getPositionAt str index =
+  let
+    {before, after} = String.splitAt index str
+    count p s = split p s # Array.length
+  in
+   Position
+    { index
+    , line: count (Pattern "\n") before
+    , column: String.length before - count (Pattern "\n") before
+    }

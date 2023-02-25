@@ -14,7 +14,6 @@ module GraphQL.Templater.Ast.Transform
 
 import Prelude
 
-import Data.Array as Array
 import Data.Either (hush)
 import Data.Foldable (foldl)
 import Data.List (List(..), reverse, (:))
@@ -22,13 +21,13 @@ import Data.List as List
 import Data.List.Types (NonEmptyList)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String as String
-import Data.String.CodeUnits (toCharArray)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), getPos)
 import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Ast.Print (printUnpositioned)
-import GraphQL.Templater.Ast.Suggest (getStartColumn, getStartIdx, getStartLine)
+import GraphQL.Templater.Ast.Suggest (getStartIdx)
 import GraphQL.Templater.Positions (Positions)
-import Parsing (Position(..))
+import Record (merge)
+import Record.Extra (pick)
 
 insertTextAt
   :: String
@@ -40,11 +39,15 @@ insertTextAt text idx =
     >>> modifyTextAt go idx
     >>> map filterEmptyText
   where
-  go existing positions@{ start: Position start } =
+  go existing positions@{ start } =
     let
-      { before, after } = String.splitAt (idx - start.index) existing
+      { before, after } = String.splitAt (idx - start) existing
+      new = before <> text <> after
     in
-      Text (before <> text <> after) positions : Nil
+      Text new positions
+        { str = new
+        , end = start + String.length new
+        } : Nil
 
 insertEmptyEachAt :: String -> Int -> List (Ast Positions) -> Maybe (List (Ast Positions))
 insertEmptyEachAt field = insertEmptyEachAt'
@@ -132,33 +135,19 @@ modifyAstStartingAt fn idx inputAsts =
               newAst = fn ast
               printed = printUnpositioned newAst
               startIdx = getStartIdx open
-              startCol = getStartColumn open
-              startLine = getStartLine open
               positioned =
                 parse printed
                   # hush
                   # fromMaybe (pure ast)
-                  <#> map \{ start, end } ->
-                    let
-                      Position start' = start
-                      Position end' = end
-                    in
-                      { start: Position
-                          { index: startIdx + start'.index
-                          , line: startLine + start'.line
-                          , column: startCol + start'.column
-                          }
-                      , end: Position
-                          { index: startIdx + end'.index
-                          , line: startLine + end'.line
-                          , column: startCol + end'.column
-                          }
-                      }
-
+                  <#> map \{ start, end, str } ->
+                    { end: startIdx + end
+                    , start: startIdx + start
+                    , str
+                    }
             in
               { res: positioned <> res
               , posChange: Just
-                  { old: open
+                  { old: pick open
                   , new:
                       { start: open.start
                       , end: maybe open.start (getPos >>> _.open.end) $ List.last positioned
@@ -170,7 +159,7 @@ modifyAstStartingAt fn idx inputAsts =
         , posChange: innerRes.posChange
         }
         where
-        innerRes = updateAsts { res, posChange } inner
+        innerRes = updateAsts { res: Nil, posChange } inner
         close' = case innerRes.posChange of
           Nothing -> close
           Just pc -> updateAstPosition pc close
@@ -180,7 +169,7 @@ modifyAstStartingAt fn idx inputAsts =
         , posChange: innerRes.posChange
         }
         where
-        innerRes = updateAsts { res, posChange } inner
+        innerRes = updateAsts { res: Nil, posChange } inner
         close' = case innerRes.posChange of
           Nothing -> close
           Just pc -> updateAstPosition pc close
@@ -215,7 +204,8 @@ modifyTextAt
   -> Int
   -> List (Ast Positions)
   -> Maybe (List (Ast Positions))
-modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reverse res)
+modifyTextAt fn idx inputAsts = Just $
+  reverse (updateAsts { res: Nil, posChange: Nothing } inputAsts).res
   where
   go
     :: { posChange :: Maybe PosChange
@@ -229,10 +219,10 @@ modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reve
     Nothing -> case ast of
       Text text
         pos@
-          { start: Position start
-          , end: Position end
+          { start
+          , end
           }
-        | idx >= start.index && idx <= end.index ->
+        | idx >= start && idx <= end ->
             let
               inserted = fn text pos
               newText = printUnpositioned inserted
@@ -240,33 +230,40 @@ modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reve
               { res: inserted <> res
               , posChange:
                   Just
-                    { old: pos
+                    { old: pick pos
                     , new:
-                        { start: Position start
-                        , end: Position
-                            { index: end.index + (String.length newText - String.length text)
-                            , line: start.line + getNewlines newText
-                            , column: end.column + (getColumn newText - getColumn text)
-                            }
+                        { start: start
+                        , end: end + (String.length newText - String.length text)
                         }
                     }
               }
         | true -> doNothing
       Each v inner open close ->
-        { res: Each v (reverse innerRes.res) open close : res
+        { res: Each v (reverse innerRes.res) open close' : res
         , posChange: innerRes.posChange
         }
         where
-        innerRes = updateAsts { res, posChange } inner
-
+        innerRes = updateAsts { res: Nil, posChange } inner
+        close' = case innerRes.posChange of
+          Nothing -> close
+          Just pc -> updateAstPosition pc close
+          
       With v inner open close ->
-        { res: With v (reverse innerRes.res) open close : res
+        { res:  With v (reverse innerRes.res) open close' : res
         , posChange: innerRes.posChange
         }
         where
-        innerRes = updateAsts { res, posChange } inner
+        innerRes = updateAsts { res: Nil, posChange } inner
+        close' = case innerRes.posChange of
+          Nothing -> close
+          Just pc -> updateAstPosition pc close
+
       Var _ _ -> doNothing
-    _ -> doNothing
+
+    Just { old, new } ->
+      { res: map (updateAstPosition { old, new }) ast : res
+      , posChange
+      }
     where
     doNothing =
       { res: ast : res
@@ -281,75 +278,36 @@ modifyTextAt fn idx inputAsts = posChange <#> \pc -> updateAstPositions pc (reve
     -> { posChange :: Maybe PosChange
        , res :: List (Ast Positions)
        }
-  updateAsts input asts' = foldl go input asts'
+  updateAsts input = foldl go input
 
-  { res, posChange } =
-    updateAsts
-      { posChange: Nothing
-      , res: Nil
-      }
-      $ intersperseEmptyText inputAsts
 
-getNewlines :: String -> Int
-getNewlines = Array.length <<< Array.filter (eq '\n') <<< toCharArray
-
-getColumn :: String -> Int
-getColumn = Array.length <<< Array.takeWhile (not eq '\n') <<< Array.reverse <<< toCharArray
-
-type PosChange = { old :: Positions, new :: Positions }
-
-updateAstPositions :: PosChange -> List (Ast Positions) -> List (Ast Positions)
-updateAstPositions { old, new } asts = asts <#> map (updateAstPosition { old, new })
+type PosChange = { old :: { start :: Int, end :: Int }, new :: { start :: Int, end :: Int } }
 
 updateAstPosition :: PosChange -> Positions -> Positions
 updateAstPosition { old, new } =
-  ( updateStartColumn
-      >>> updateEndColumn
-      >>> updateIndexAndLine
+  ( updateIndex
   )
   where
-  (Position oldStart) = old.start
-  (Position newEnd) = new.end
-  (Position oldEnd) = old.end
+  oldStart = old.start
+  newEnd = new.end
+  oldEnd = old.end
 
-  updateStartColumn = case _ of
-    positions@{ start: Position start }
-      | start.line == newEnd.line && start.index >= oldEnd.index -> positions
-          { start = Position start
-              { column = start.column + (newEnd.column - oldEnd.column)
-              }
-          }
-      | true -> positions
-
-  updateEndColumn = case _ of
-    positions@{ end: Position end }
-      | end.line == newEnd.line && end.index >= oldEnd.index -> positions
-          { end = Position end
-              { column = end.column + (newEnd.column - oldEnd.column)
-              }
-          }
-      | true -> positions
-
-  updateIndexAndLine = case _ of
-    positions@{ start: Position start, end: Position end }
-      | old == positions -> new
-      | start.index >= oldStart.index ->
-          { start: Position start
-              { index = start.index + (newEnd.index - oldEnd.index)
-              , line = start.line + (newEnd.line - oldEnd.line)
-              }
-          , end: Position end
-              { index = end.index + (newEnd.index - oldEnd.index)
-              , line = end.line + (newEnd.line - oldEnd.line)
-              }
-          }
-      | true -> positions
+  updateIndex =
+    case _ of
+      positions@{ start, end, str }
+        | old == pick positions -> merge { str } new
+        | start >= oldStart ->
+            { start: start + (newEnd - oldEnd)
+            , end: end + (newEnd - oldEnd)
+            , str
+            }
+        | true -> positions
 
 intersperseEmptyText :: List (Ast Positions) -> List (Ast Positions)
 intersperseEmptyText = case _ of
   Nil -> Nil
   Cons ast@(Text _ _) rest -> Cons ast (intersperseEmptyText rest)
-  Cons last Nil -> nilText open : last : nilText { start: end, end } : Nil
+  Cons last Nil -> nilText open : last : nilText { start: end, end, str: "" } : Nil
     where
     { open } = getPos last
     end = getEndPosition last
@@ -358,7 +316,7 @@ intersperseEmptyText = case _ of
   Cons (With p inner open close) rest -> nilText open : (With p (intersperseEmptyText inner) open close) : (intersperseEmptyText rest)
 
   where
-  emptyPos { start } = { start, end: start }
+  emptyPos { start } = { start, end: start, str: "" }
 
   nilText open = Text "" (emptyPos open)
 
@@ -370,7 +328,7 @@ filterEmptyText = case _ of
   Cons (With p inner open close) rest -> (With p (filterEmptyText inner) open close) : filterEmptyText rest
   Cons ast rest -> ast : filterEmptyText rest
 
-getEndPosition :: Ast Positions -> Position
+getEndPosition :: Ast Positions -> Int
 getEndPosition ast = maybe open.end _.end close
   where
   { open, close } = getPos ast

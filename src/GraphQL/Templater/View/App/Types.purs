@@ -42,6 +42,6 @@ type State =
 
 type TemplaterError =
   { message :: String
-  , from :: Position
-  , to :: Maybe Position
+  , from :: Int
+  , to :: Maybe Int
   }

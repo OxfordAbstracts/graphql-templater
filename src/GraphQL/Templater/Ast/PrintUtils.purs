@@ -2,50 +2,35 @@ module GraphQL.Templater.Ast.PrintUtils where
 
 import Prelude
 
-import Control.Monad.State (State, evalState, modify)
-import Data.List (List(..), fold, foldl, (:))
-import Data.Map (Map)
-import Data.Map as Map
+import Data.List (List(..), fold, (:))
 import Data.Maybe (Maybe(..))
-import Data.String as String
-import Data.String.Utils (unsafeRepeat)
-import Data.Traversable (class Foldable, class Traversable, sequence)
-import Data.Tuple (Tuple(..), snd)
+import Data.Traversable (class Foldable, class Traversable)
 import GraphQL.Templater.Positions (Positions)
-import Parsing (Position(..), initialPos)
+import Parsing (Position(..))
 
-displayPrintResult :: PrintResult Int -> String
-displayPrintResult result =
-  evalState result 0
-    # (Map.toUnfoldable :: _ -> List _)
-    <#> snd
-    # fold
+-- displayPrintResult :: PrintResult Int -> String
+-- displayPrintResult result =
+--   evalState result 0
+--     # (Map.toUnfoldable :: _ -> List _)
+--     <#> snd
+--     # fold
 
-displayPositionedPrintResult :: PrintResult Position -> String
-displayPositionedPrintResult result =
-  evalState result 0
-    # (Map.toUnfoldable :: _ -> List _)
-    # foldl insert ""
-  where
-  insert :: String -> Tuple Position String -> String
-  insert res (Tuple (Position { index }) str) =
-    if String.length res < index then
-      res <> unsafeRepeat (index - String.length res) " " <> str
-    else
-      case String.splitAt index res of
-        { before, after } ->
-          before <> str <> String.drop (String.length str) after
+-- displayPositionedPrintResult :: PrintResult Position -> String
+-- displayPositionedPrintResult result =
+--   evalState result 0
+--     # (Map.toUnfoldable :: _ -> List _)
+--     # foldl insert ""
+--   where
+--   insert :: String -> Tuple Position String -> String
+--   insert res (Tuple (Position { index }) str) =
+--     if String.length res < index then
+--       res <> unsafeRepeat (index - String.length res) " " <> str
+--     else
+--       case String.splitAt index res of
+--         { before, after } ->
+--           before <> str <> String.drop (String.length str) after
 
-type PrintResult k = State Int (Map k String)
-
-class Ord k <= PrintKey k where
-  getKey :: Position -> State Int k
-
-instance PrintKey Position where
-  getKey pos = pure pos
-
-instance PrintKey Int where
-  getKey _ = modify ((+) 1)
+-- type String = State Int (Map k String)
 
 adjustPosition :: Int -> Position -> Position
 adjustPosition n (Position { index, column, line }) =
@@ -55,27 +40,19 @@ adjustPosition n (Position { index, column, line }) =
     , line
     }
 
-adjustPositions :: forall f. Functor f => Int -> f Positions -> f Positions
-adjustPositions n = map $ \({ start, end }) ->
-  { start: adjustPosition n start
-  , end: adjustPosition n end
-  }
+combine :: forall f. Foldable f => Traversable f => f (String) -> (String)
+combine results = fold results
 
-combine :: forall f k. Ord k => Foldable f => Traversable f => f (PrintResult k) -> (PrintResult k)
-combine results = do
-  f <- sequence results
-  pure $ Map.unions f
+empty ::  String
+empty = ""
 
-empty :: forall k. PrintResult k
-empty = pure Map.empty
+-- atStart :: Int -> String -> String
+atStart :: forall t31 t32. t31 -> t32 -> t32
+atStart pos str = str
 
-atStart :: forall k. PrintKey k => Position -> String -> PrintResult k
-atStart pos str = do
-  k <- getKey pos
-  pure $ Map.singleton k str
-
-atEnd :: forall k. PrintKey k => Position -> String -> PrintResult k
-atEnd pos str = atStart (adjustPosition (-(String.length str)) pos) str
+-- atEnd :: Int -> String -> String
+atEnd :: forall t34 t3237. t34 -> t3237 -> t3237
+atEnd pos str = atStart unit str
 
 mapWithPrevious :: forall a b. (Maybe a -> a -> b) -> List a -> List b
 mapWithPrevious f = go Nothing
@@ -85,7 +62,7 @@ mapWithPrevious f = go Nothing
     Cons x xs' -> f prev x : go (Just x) xs'
 
 dummyPositions :: forall f a. Functor f => f a -> f Positions
-dummyPositions = map $ const { start: initialPos, end: initialPos }
+dummyPositions = map $ const initalPositions
 
 initalPositions :: Positions
-initalPositions = { start: initialPos, end: initialPos }
+initalPositions = { start: 0, end: 0, str: "" }
