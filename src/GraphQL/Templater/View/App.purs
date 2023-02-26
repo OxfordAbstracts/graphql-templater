@@ -169,7 +169,7 @@ component =
 
     ModifyAstAt fn idx -> do
       { ast } <- H.get
-      void $ handleNewAst $ modifyAstStartingAt fn idx ast
+      void $ handleNewAst $ modifyAstStartingAt (fn >>> map (map (const Nothing))) idx ast
       H.tell _editor unit $ SetSelection
         { anchor: idx + 2
         , head: idx + 2

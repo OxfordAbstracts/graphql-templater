@@ -17,7 +17,7 @@ import GraphQL.Templater.Ast.TypeCheck.Errors (ArgTypeError(..), PositionedError
 import GraphQL.Templater.Eval.MakeQuery (getAlias)
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeTreeFromDoc)
-import Parsing (ParseError, Position(..), parseErrorMessage, runParser)
+import Parsing (ParseError, parseErrorMessage, runParser)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 

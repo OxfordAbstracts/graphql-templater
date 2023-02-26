@@ -1,19 +1,21 @@
 module GraphQL.Templater.Ast.Print
   ( printEach
-  , printMapVarPath
-  , printMapVarPathPart
   , printPositioned
+  , printPositionedMb
   , printSingleAstPositioned
   , printUnpositioned
   , printVarPartName
+  , printVarPath
+  , printVarPathPart
   , printWith
-  ) where
+  )
+  where
 
 import Prelude
 
 import Data.List (List(..), fold, foldMap, (:))
 import Data.List.Types (toList)
-import Data.Maybe (Maybe(..), isJust)
+import Data.Maybe (Maybe(..), isJust, maybe')
 import Data.Monoid (guard)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), Args)
 import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..))
@@ -33,11 +35,25 @@ printSingleAstPositioned = case _ of
   Each _ inner open close -> open.str <> printPositioned inner <> close.str
   With _ inner open close -> open.str <> printPositioned inner <> close.str
 
+printPositionedMb :: List (Ast (Maybe Positions)) -> String
+printPositionedMb asts = foldMap printSingleAstPositionedMb asts
+
+printSingleAstPositionedMb :: Ast (Maybe Positions) -> String
+printSingleAstPositionedMb = case _ of
+  Text text _ -> text
+  Var varPath pos -> maybe' (\_ -> printVar varPath) _.str pos
+  Each varPath inner open close ->
+    maybe' (\_ -> printOpenEach varPath) _.str open
+      <> printPositionedMb inner
+      <> maybe' (\_ -> eachClose) _.str close
+  With varPath inner open close ->
+    maybe' (\_ -> printOpenWith varPath) _.str open
+      <> printPositionedMb inner
+      <> maybe' (\_ -> withClose) _.str close
+
 -- -- | Print an AST, discarding the original positions of the tokens.
 printUnpositioned :: forall a. List (Ast a) -> String
 printUnpositioned asts = fold $ map printMapTemplateAst asts
-
--- -- asUnpositioned fn = displayPrintResult <<< fn <<< map dummyPositions
 
 printMapTemplateAsts :: forall a. List (Ast a) -> String
 printMapTemplateAsts asts = fold $ map printMapTemplateAst asts
@@ -47,7 +63,7 @@ printMapTemplateAst = case _ of
   Var varPath _ ->
     fold
       [ openVar
-      , printMapVarPath varPath
+      , printVarPath varPath
       , closeVar
       ]
   Each varPath inner _ _ ->
@@ -59,31 +75,48 @@ printMapTemplateAst = case _ of
   Text text _ ->
     text
 
+printVar :: forall a. VarPath a -> String
+printVar varPath = fold
+  [ openVar
+  , printVarPath varPath
+  , closeVar
+  ]
+
 printEach :: forall a. VarPath a -> List (Ast a) -> String
 printEach varPath@(VarPath _ _) inner =
   fold
-    [ eachOpen
-    , printMapVarPath varPath
-    , closeVar
+    [ printOpenEach varPath
     , printMapTemplateAsts inner
     , eachClose
     ]
 
+printOpenEach :: forall a. VarPath a -> String
+printOpenEach varPath = fold
+  [ eachOpen
+  , printVarPath varPath
+  , closeVar
+  ]
+
 printWith :: forall a. VarPath a -> List (Ast a) -> String
 printWith varPath inner =
   fold
-    [ withOpen
-    , printMapVarPath varPath
-    , closeVar
+    [ printOpenWith varPath
     , printMapTemplateAsts inner
     , withClose
     ]
 
-printMapVarPath :: forall a. VarPath a -> String
-printMapVarPath (VarPath path _) = fold $ mapWithPrevious printMapVarPathPart (toList path)
+printOpenWith :: forall a. VarPath a -> String
+printOpenWith varPath = fold
+  [ withOpen
+  , printVarPath varPath
+  , closeVar
+  ]
 
-printMapVarPathPart :: forall a. Maybe (VarPathPart a) -> VarPathPart a -> String
-printMapVarPathPart prev (VarPathPart { name, args } _) =
+printVarPath :: forall a. VarPath a -> String
+printVarPath (VarPath path _) = fold $ mapWithPrevious printVarPathPart (toList path)
+
+printVarPathPart :: forall a. Maybe (VarPathPart a) -> VarPathPart a -> String
+printVarPathPart prev (VarPathPart { name, args } _) =
   fold
     [ dot
     , printMapVarPartName name

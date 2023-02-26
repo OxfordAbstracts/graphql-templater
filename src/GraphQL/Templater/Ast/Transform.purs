@@ -8,9 +8,12 @@ module GraphQL.Templater.Ast.Transform
   , insertVarAt'
   , insertVarPathAt
   , insertWithOfPathAt
+  , justPos
   , modifyAstStartingAt
   , modifyTextAt
-  ) where
+  , nothingPos
+  )
+  where
 
 import Prelude
 
@@ -23,7 +26,7 @@ import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String as String
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), getPos)
 import GraphQL.Templater.Ast.Parser (parse)
-import GraphQL.Templater.Ast.Print (printUnpositioned)
+import GraphQL.Templater.Ast.Print (printPositionedMb, printUnpositioned)
 import GraphQL.Templater.Ast.Suggest (getStartIdx)
 import GraphQL.Templater.Positions (Positions)
 import Record (merge)
@@ -115,7 +118,15 @@ insertVarAt' varPath = insertTextAt
       $ Var (VarPath varPath unit) unit
   )
 
-modifyAstStartingAt :: forall p. (Ast Positions -> List (Ast p)) -> Int -> List (Ast Positions) -> List (Ast Positions)
+nothingPos :: forall a p f. Functor f => f a -> f (Maybe p)
+nothingPos = map (const Nothing)
+
+
+-- justPos :: forall a p f. Functor f => f a -> f (Maybe p)
+justPos :: forall f f2 a. Functor f => Functor f2 => f (f2 a) -> f (f2 (Maybe a))
+justPos = map (map Just)
+
+modifyAstStartingAt :: (Ast Positions -> List (Ast (Maybe Positions))) -> Int -> List (Ast Positions) -> List (Ast Positions)
 modifyAstStartingAt fn idx inputAsts =
   reverse (updateAsts { res: Nil, posChange: Nothing } inputAsts).res
   where
@@ -133,7 +144,7 @@ modifyAstStartingAt fn idx inputAsts =
         | getStartIdx open == idx ->
             let
               newAst = fn ast
-              printed = printUnpositioned newAst
+              printed = printPositionedMb newAst
               startIdx = getStartIdx open
               positioned =
                 parse printed

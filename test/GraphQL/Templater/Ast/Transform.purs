@@ -14,6 +14,7 @@ import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), Var
 import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Ast.Print (printPositioned)
 import GraphQL.Templater.Ast.Transform (insertEmptyEachAt, insertTextAt, modifyAstStartingAt)
+import GraphQL.Templater.Positions (Positions)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual)
 
@@ -152,7 +153,7 @@ spec = do
 
     describe "modifyAstStartingAt" do
       it "should replace a text only ast" do
-        parseAndTestModifyAstStartingAt (const $ pure $ Text "new" unit) 0 "old" "new"
+        parseAndTestModifyAstStartingAt (const $ pure $ Text "new" Nothing) 0 "old" "new"
 
       it "should replace a var" do
         parseAndTestModifyAstStartingAt
@@ -160,13 +161,13 @@ spec = do
               ( VarPath
                   ( pure $ VarPathPart
                       { args: Nothing
-                      , name: VarPartNameGqlName "newvar" unit
+                      , name: VarPartNameGqlName "newvar" Nothing
                       }
-                      unit
+                      Nothing
                   )
-                  unit
+                  Nothing
               )
-              unit
+              Nothing
           )
           6
           "before{{var}}after"
@@ -182,7 +183,7 @@ spec = do
 
       it "should double a var" do
         parseAndTestModifyAstStartingAt
-          ( \ast -> pure ast <> pure ast
+          ( \ast -> map Just <$> pure ast <> pure ast
           )
           6
           "before{{var}}after{{othervar}}"
@@ -198,7 +199,7 @@ spec = do
 
       it "should double a var in a with" do
         parseAndTestModifyAstStartingAt
-          ( \ast -> pure ast <> pure ast
+          ( \ast -> map Just <$> pure ast <> pure ast
           )
           20
           "{{#with objt}}before{{var}}after{{/with}}}"
@@ -222,7 +223,7 @@ parseAndTestInsertEmptyEachAt insert idx input expected =
 parseAndTestModifyAstStartingAt
   :: forall m p
    . MonadThrow Error m
-  => (AstPos -> List (Ast p))
+  => (AstPos -> List (Ast (Maybe Positions)))
   -> Int
   -> String
   -> String
