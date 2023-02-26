@@ -8,8 +8,7 @@ module GraphQL.Templater.Ast.Print
   , printVarPath
   , printVarPathPart
   , printWith
-  )
-  where
+  ) where
 
 import Prelude
 

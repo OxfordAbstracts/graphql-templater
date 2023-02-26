@@ -12,8 +12,7 @@ module GraphQL.Templater.Ast.Transform
   , modifyAstStartingAt
   , modifyTextAt
   , nothingPos
-  )
-  where
+  ) where
 
 import Prelude
 
@@ -120,7 +119,6 @@ insertVarAt' varPath = insertTextAt
 
 nothingPos :: forall a p f. Functor f => f a -> f (Maybe p)
 nothingPos = map (const Nothing)
-
 
 -- justPos :: forall a p f. Functor f => f a -> f (Maybe p)
 justPos :: forall f f2 a. Functor f => Functor f2 => f (f2 a) -> f (f2 (Maybe a))

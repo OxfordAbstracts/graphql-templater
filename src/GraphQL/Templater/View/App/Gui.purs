@@ -94,7 +94,7 @@ gui state =
                   Each vp inner pos close ->
                     [ let
                         path = varPathToDropdownPath vp
-                        setNewVarPath selectedPath _ =  pure $ Each (dropdownPathToVarPath vp selectedPath) (justPos inner) (Just pos) (Just close)
+                        setNewVarPath selectedPath _ = pure $ Each (dropdownPathToVarPath vp selectedPath) (justPos inner) (Just pos) (Just close)
                       in
                         HH.slot (Proxy :: Proxy "edit_each") { pos, vp } nestedDropdown
                           { label: "#each " <> (printPath path)
@@ -110,7 +110,7 @@ gui state =
                   With vp inner pos close ->
                     [ let
                         path = varPathToDropdownPath vp
-                        setNewVarPath selectedPath _ =  pure $ With (dropdownPathToVarPath vp selectedPath) (justPos inner) (Just pos) (Just close)
+                        setNewVarPath selectedPath _ = pure $ With (dropdownPathToVarPath vp selectedPath) (justPos inner) (Just pos) (Just close)
                       in
                         HH.slot (Proxy :: Proxy "edit_with") { pos, vp } nestedDropdown
                           { label: "#with " <> (printPath path)
