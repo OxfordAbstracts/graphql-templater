@@ -8,11 +8,11 @@ import Data.List (List)
 import Data.Map as Map
 import Data.Maybe (Maybe)
 import Effect.Ref (Ref)
-import GraphQL.Templater.Ast (Ast, AstPos, VarPartName(..))
+import GraphQL.Templater.Ast (Ast, AstPos, VarPartName)
+import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree)
 import GraphQL.Templater.View.Autocomplete (AutocompleteState)
 import GraphQL.Templater.View.Component.Editor (ViewUpdate)
-import Parsing (Position)
 
 data Action
   = Init
@@ -23,7 +23,7 @@ data Action
   | InsertVariable (Array (VarPartName Unit))
   | InsertEach (Array (VarPartName Unit))
   | InsertWith (Array (VarPartName Unit))
-  | ModifyAstAt (AstPos -> List (Ast Unit)) Int
+  | ModifyAstAt (AstPos -> List (Ast (Maybe Positions))) Int
 
 type State =
   { url :: String
@@ -42,6 +42,6 @@ type State =
 
 type TemplaterError =
   { message :: String
-  , from :: Position
-  , to :: Maybe Position
+  , from :: Int
+  , to :: Maybe Int
   }

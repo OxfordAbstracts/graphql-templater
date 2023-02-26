@@ -4,7 +4,7 @@ import Prelude
 
 import Affjax.RequestHeader (RequestHeader(..))
 import Control.Monad.Error.Class (try)
-import Data.Array (mapMaybe)
+import Data.Array (last, mapMaybe)
 import Data.Array as Array
 import Data.Array.NonEmpty (toUnfoldable1)
 import Data.Array.NonEmpty as NonEmpty
@@ -114,7 +114,7 @@ component =
             [ HH.text "Errors:"
             , HH.ul_ $ Array.fromFoldable state.errors <#> \{ from, message } ->
                 HH.li [ css "whitespace-pre-wrap border-2 rounded-md p-1 m-2" ]
-                  [ HH.text $ joinWith "\n" $ parseErrorHuman state.template 64 $ ParseError message from ]
+                  [ HH.text $ joinWith "\n" $ parseErrorHuman state.template 64 $ ParseError message (getPositionAt state.template from) ]
             ]
         else
           HH.text ""
@@ -169,7 +169,7 @@ component =
 
     ModifyAstAt fn idx -> do
       { ast } <- H.get
-      void $ handleNewAst $ modifyAstStartingAt fn idx ast
+      void $ handleNewAst $ modifyAstStartingAt (fn >>> map (map (const Nothing))) idx ast
       H.tell _editor unit $ SetSelection
         { anchor: idx + 2
         , head: idx + 2
@@ -239,7 +239,7 @@ component =
         toDiagnostic :: TemplaterError -> Diagnostic
         toDiagnostic err =
           let
-            getIndex (Position { index }) = index
+            getIndex index = index
             from = getIndex err.from
           in
             { from
@@ -251,7 +251,7 @@ component =
         relint errs = H.tell _editor unit $ Editor.Relint $ Array.fromFoldable $ map toDiagnostic errs
 
       case parse template of
-        Left (ParseError message pos) -> do
+        Left (ParseError message (Position { index: pos })) -> do
           { errors } <- H.modify _
             { errors = pure
                 { from: pos
@@ -304,3 +304,15 @@ _editor = Proxy :: Proxy "Editor"
 foreign import initialUrl :: String
 foreign import initialHeaders :: String
 foreign import initialQuery :: String
+
+getPositionAt :: String -> Int -> Position
+getPositionAt str index =
+  let
+    before = String.take index str
+    lines = split (Pattern "\n") before
+  in
+    Position
+      { index
+      , line: 1 + Array.length lines
+      , column: 1 + (last lines # maybe 0 String.length)
+      }

@@ -8,11 +8,11 @@ import Data.Either (Either(..))
 import Data.List.Types (List(..), nelCons, (:))
 import Data.Maybe (Maybe(..))
 import Data.Newtype (wrap)
+import Data.String as String
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..))
 import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..), Value(..))
 import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Positions (Positions)
-import Parsing (Position(..))
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -21,7 +21,7 @@ spec = do
   describe "GraphQL.Templater.Ast.Parser" do
     describe "parse" do
       it "should return `Text` when there are no variables" do
-        parse "test" `shouldEqual` Right (pure $ Text "test" (line1 1 5))
+        parse "test" `shouldEqual` Right (pure $ Text "test" (line1 0 "test"))
 
       it "should parse simple variables" do
         parseWoPos "{{test}}" `shouldEqual` Right
@@ -133,9 +133,10 @@ spec = do
 
 line1
   :: Int
-  -> Int
+  -> String
   -> Positions
-line1 start end =
-  { start: Position { line: 1, column: start, index: start - 1 }
-  , end: Position { line: 1, column: end, index: end - 1 }
+line1 start str =
+  { start
+  , str
+  , end: start + String.length str
   }

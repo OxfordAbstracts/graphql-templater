@@ -1,122 +1,154 @@
 module GraphQL.Templater.Ast.Print
   ( printEach
-  , printMapVarPath
-  , printMapVarPathPart
   , printPositioned
+  , printPositionedMb
+  , printSingleAstPositioned
   , printUnpositioned
   , printVarPartName
+  , printVarPath
+  , printVarPathPart
   , printWith
   ) where
 
 import Prelude
 
-import Data.List (List(..), last, (:))
+import Data.List (List(..), fold, foldMap, (:))
 import Data.List.Types (toList)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust, maybe')
+import Data.Monoid (guard)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), Args)
 import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..))
 import GraphQL.Templater.Ast.Argument.Print (printValue)
-import GraphQL.Templater.Ast.PrintUtils (class PrintKey, PrintResult, adjustPosition, atEnd, atStart, combine, displayPositionedPrintResult, displayPrintResult, dummyPositions, empty, mapWithPrevious)
+import GraphQL.Templater.Ast.PrintUtils (mapWithPrevious)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.Tokens (closeVar, eachClose, eachOpen, openVar, parent, root, withClose, withOpen)
 
 -- | Print an AST, keeping the original positions of the tokens.
--- | The asts must have the correct positions set.
 printPositioned :: List (Ast Positions) -> String
-printPositioned = displayPositionedPrintResult <<< printMapTemplateAsts
+printPositioned asts = foldMap printSingleAstPositioned asts
 
--- | Print an AST, discarding the original positions of the tokens.
-printUnpositioned :: forall a. List (Ast a) -> String
-printUnpositioned = displayPrintResult <<< printMapTemplateAsts <<< map dummyPositions
+printSingleAstPositioned :: Ast Positions -> String
+printSingleAstPositioned = case _ of
+  Text _ { str } -> str
+  Var _ { str } -> str
+  Each _ inner open close -> open.str <> printPositioned inner <> close.str
+  With _ inner open close -> open.str <> printPositioned inner <> close.str
 
--- asUnpositioned fn = displayPrintResult <<< fn <<< map dummyPositions
+printPositionedMb :: List (Ast (Maybe Positions)) -> String
+printPositionedMb asts = foldMap printSingleAstPositionedMb asts
 
-printMapTemplateAsts :: forall k. PrintKey k => List (Ast Positions) -> PrintResult k
-printMapTemplateAsts asts = combine $ map printMapTemplateAst asts
-
-printMapTemplateAst :: forall k. PrintKey k => Ast Positions -> PrintResult k
-printMapTemplateAst = case _ of
-  Var varPath { start, end } ->
-    combine
-      [ atStart start openVar
-      , printMapVarPath varPath
-      , atEnd end closeVar
-      ]
+printSingleAstPositionedMb :: Ast (Maybe Positions) -> String
+printSingleAstPositionedMb = case _ of
+  Text text _ -> text
+  Var varPath pos -> maybe' (\_ -> printVar varPath) _.str pos
   Each varPath inner open close ->
-    printEach varPath inner open close
-
+    maybe' (\_ -> printOpenEach varPath) _.str open
+      <> printPositionedMb inner
+      <> maybe' (\_ -> eachClose) _.str close
   With varPath inner open close ->
-    printWith varPath inner open close
+    maybe' (\_ -> printOpenWith varPath) _.str open
+      <> printPositionedMb inner
+      <> maybe' (\_ -> withClose) _.str close
 
-  Text text { start } ->
-    atStart start text
+-- -- | Print an AST, discarding the original positions of the tokens.
+printUnpositioned :: forall a. List (Ast a) -> String
+printUnpositioned asts = fold $ map printMapTemplateAst asts
 
-printEach :: forall k. PrintKey k => VarPath Positions -> List (Ast Positions) -> Positions -> Positions -> PrintResult k
-printEach varPath@(VarPath _ varPathPos) inner open close =
-  combine
-    [ atStart open.start $ eachOpen
-    , printMapVarPath varPath
-    , atStart varPathPos.end closeVar
+printMapTemplateAsts :: forall a. List (Ast a) -> String
+printMapTemplateAsts asts = fold $ map printMapTemplateAst asts
+
+printMapTemplateAst :: forall a. Ast a -> String
+printMapTemplateAst = case _ of
+  Var varPath _ ->
+    fold
+      [ openVar
+      , printVarPath varPath
+      , closeVar
+      ]
+  Each varPath inner _ _ ->
+    printEach varPath inner
+
+  With varPath inner _ _ ->
+    printWith varPath inner
+
+  Text text _ ->
+    text
+
+printVar :: forall a. VarPath a -> String
+printVar varPath = fold
+  [ openVar
+  , printVarPath varPath
+  , closeVar
+  ]
+
+printEach :: forall a. VarPath a -> List (Ast a) -> String
+printEach varPath@(VarPath _ _) inner =
+  fold
+    [ printOpenEach varPath
     , printMapTemplateAsts inner
-    , atStart close.start eachClose
+    , eachClose
     ]
 
-printWith :: forall k. PrintKey k => VarPath Positions -> List (Ast Positions) -> Positions -> Positions -> PrintResult k
-printWith varPath@(VarPath _ varPathPos) inner open close =
-  combine
-    [ atStart open.start withOpen
-    , printMapVarPath varPath
-    , atStart varPathPos.end closeVar
+printOpenEach :: forall a. VarPath a -> String
+printOpenEach varPath = fold
+  [ eachOpen
+  , printVarPath varPath
+  , closeVar
+  ]
+
+printWith :: forall a. VarPath a -> List (Ast a) -> String
+printWith varPath inner =
+  fold
+    [ printOpenWith varPath
     , printMapTemplateAsts inner
-    , atStart close.start withClose
+    , withClose
     ]
 
-printMapVarPath :: forall k. PrintKey k => VarPath Positions -> PrintResult k
-printMapVarPath (VarPath path _) = combine $ mapWithPrevious printMapVarPathPart (toList path)
+printOpenWith :: forall a. VarPath a -> String
+printOpenWith varPath = fold
+  [ withOpen
+  , printVarPath varPath
+  , closeVar
+  ]
 
-printMapVarPathPart :: forall k. PrintKey k => Maybe (VarPathPart Positions) -> VarPathPart Positions -> PrintResult k
-printMapVarPathPart prev (VarPathPart { name, args } {}) =
-  combine
+printVarPath :: forall a. VarPath a -> String
+printVarPath (VarPath path _) = fold $ mapWithPrevious printVarPathPart (toList path)
+
+printVarPathPart :: forall a. Maybe (VarPathPart a) -> VarPathPart a -> String
+printVarPathPart prev (VarPathPart { name, args } _) =
+  fold
     [ dot
     , printMapVarPartName name
     , printMapArgs args
     ]
   where
-  dot = case prev of
-    Nothing -> empty
-    Just (VarPathPart _ { end }) ->
-      atStart end "."
+  dot = guard (isJust prev) $ "."
 
 printVarPartName :: forall a. VarPartName a -> String
-printVarPartName = displayPrintResult <<< printMapVarPartName <<< dummyPositions
+printVarPartName = printMapVarPartName
 
-printMapVarPartName :: forall k. PrintKey k => VarPartName Positions -> PrintResult k
+printMapVarPartName :: forall a. VarPartName a -> String
 printMapVarPartName = case _ of
-  VarPartNameGqlName gqlName { start } ->
-    atStart start gqlName
-  VarPartNameParent { start } ->
-    atStart start parent
-  VarPartNameRoot { start } ->
-    atStart start root
+  VarPartNameGqlName gqlName _ ->
+    gqlName
+  VarPartNameParent _ ->
+    parent
+  VarPartNameRoot _ ->
+    root
 
-printMapArgs :: forall k. PrintKey k => Maybe (Args Positions) -> PrintResult k
+printMapArgs :: forall a. Maybe (Args a) -> String
 printMapArgs = case _ of
-  Nothing -> empty
-  Just Nil -> empty
-  Just args@((Argument { pos: { start, end } }) : _) ->
-    let
-      argsEnd = adjustPosition 1 case last args of
-        Just (Argument { pos }) -> pos.end
-        _ -> end
-    in
-      combine $
-        pure (atEnd start "(")
-          <> mapWithPrevious printMapArg args
-          <> pure (atEnd argsEnd ")")
+  Nothing -> ""
+  Just Nil -> ""
+  Just args@(_ : _) ->
+    fold $
+      pure "("
+        <> mapWithPrevious printMapArg args
+        <> pure ")"
 
-printMapArg :: forall k. PrintKey k => Maybe (Argument Positions) -> Argument Positions -> PrintResult k
+printMapArg :: forall a. Maybe (Argument a) -> Argument a -> String
 printMapArg prev (Argument { name, value }) =
-  combine
+  fold
     [ comma
     , printMapArgName name
     , printValue value
@@ -124,12 +156,12 @@ printMapArg prev (Argument { name, value }) =
   where
   comma =
     case prev of
-      Nothing -> empty
-      Just (Argument { pos: { end } }) -> atStart end ","
+      Nothing -> ""
+      Just (Argument _) -> ","
 
-printMapArgName :: forall k. PrintKey k => ArgName Positions -> PrintResult k
-printMapArgName (ArgName name { start, end }) = combine
-  [ atStart start name
-  , atStart end ": "
+printMapArgName :: forall a. ArgName a -> String
+printMapArgName (ArgName name _) = fold
+  [ name
+  , ": "
   ]
 

@@ -14,7 +14,7 @@ import GraphQL.Templater.Ast (Ast(..), AstPos, VarPartName(..), VarPath(..), Var
 import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Ast.Print (printPositioned)
 import GraphQL.Templater.Ast.Transform (insertEmptyEachAt, insertTextAt, modifyAstStartingAt)
-import Parsing (Position(..))
+import GraphQL.Templater.Positions (Positions)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual)
 
@@ -25,40 +25,46 @@ spec = do
       it "should insert text in a single text ast" do
         insertTextAt " new " 1
           ( pure $ Text "ab"
-              { start: Position { line: 1, column: 1, index: 0 }
-              , end: Position { line: 1, column: 3, index: 2 }
+              { start: 0
+              , end: 2
+              , str: "ab"
               }
           )
           `shouldEqual`
             ( Just $ pure $ Text "a new b"
-                { start: Position { line: 1, column: 1, index: 0 }
-                , end: Position { line: 1, column: 8, index: 7 }
+                { start: 0
+                , end: 7
+                , str: "a new b"
                 }
             )
       it "should insert in the 2nd text" do
 
         insertTextAt "a" 3
           ( Text "12"
-              { start: Position { line: 1, column: 1, index: 0 }
-              , end: Position { line: 1, column: 3, index: 2 }
+              { start: 0
+              , end: 2
+              , str: "12"
               }
               :
                 Text "34"
-                  { start: Position { line: 1, column: 3, index: 2 }
-                  , end: Position { line: 1, column: 5, index: 4 }
+                  { start: 2
+                  , end: 4
+                  , str: "34"
                   }
               : Nil
           )
           `shouldEqual`
             ( Just $
                 Text "12"
-                  { start: Position { line: 1, column: 1, index: 0 }
-                  , end: Position { line: 1, column: 3, index: 2 }
+                  { start: 0
+                  , end: 2
+                  , str: "12"
                   }
                   :
                     Text "3a4"
-                      { start: Position { line: 1, column: 3, index: 2 }
-                      , end: Position { line: 1, column: 6, index: 5 }
+                      { start: 2
+                      , end: 5
+                      , str: "3a4"
                       }
                   : Nil
             )
@@ -66,26 +72,30 @@ spec = do
       it "should insert in the 1st text" do
         insertTextAt "a" 2
           ( Text "12"
-              { start: Position { line: 1, column: 1, index: 0 }
-              , end: Position { line: 1, column: 3, index: 2 }
+              { start: 0
+              , end: 2
+              , str: "12"
               }
               :
                 Text "34"
-                  { start: Position { line: 1, column: 3, index: 2 }
-                  , end: Position { line: 1, column: 5, index: 4 }
+                  { start: 2
+                  , end: 4
+                  , str: "34"
                   }
               : Nil
           )
           `shouldEqual`
             ( Just $
                 Text "12a"
-                  { start: Position { line: 1, column: 1, index: 0 }
-                  , end: Position { line: 1, column: 4, index: 3 }
+                  { start: 0
+                  , end: 3
+                  , str: "12a"
                   }
                   :
                     Text "34"
-                      { start: Position { line: 1, column: 4, index: 3 }
-                      , end: Position { line: 1, column: 6, index: 5 }
+                      { start: 3
+                      , end: 5
+                      , str: "34"
                       }
                   : Nil
             )
@@ -93,26 +103,30 @@ spec = do
       it "should handle newlines" do
         insertTextAt "\n" 2
           ( Text "12"
-              { start: Position { line: 1, column: 1, index: 0 }
-              , end: Position { line: 1, column: 3, index: 2 }
+              { start: 0
+              , end: 2
+              , str: "12"
               }
               :
                 Text "34"
-                  { start: Position { line: 1, column: 3, index: 2 }
-                  , end: Position { line: 1, column: 5, index: 4 }
+                  { start: 2
+                  , end: 4
+                  , str: "34"
                   }
               : Nil
           )
           `shouldEqual`
             ( Just $
                 Text "12\n"
-                  { start: Position { line: 1, column: 1, index: 0 }
-                  , end: Position { line: 2, column: 1, index: 3 }
+                  { start: 0
+                  , end: 3
+                  , str: "12\n"
                   }
                   :
                     Text "34"
-                      { start: Position { line: 2, column: 1, index: 3 }
-                      , end: Position { line: 2, column: 3, index: 5 }
+                      { start: 3
+                      , end: 5
+                      , str: "34"
                       }
                   : Nil
             )
@@ -139,7 +153,7 @@ spec = do
 
     describe "modifyAstStartingAt" do
       it "should replace a text only ast" do
-        parseAndTestModifyAstStartingAt (const $ pure $ Text "new" unit) 0 "old" "new"
+        parseAndTestModifyAstStartingAt (const $ pure $ Text "new" Nothing) 0 "old" "new"
 
       it "should replace a var" do
         parseAndTestModifyAstStartingAt
@@ -147,13 +161,13 @@ spec = do
               ( VarPath
                   ( pure $ VarPathPart
                       { args: Nothing
-                      , name: VarPartNameGqlName "newvar" unit
+                      , name: VarPartNameGqlName "newvar" Nothing
                       }
-                      unit
+                      Nothing
                   )
-                  unit
+                  Nothing
               )
-              unit
+              Nothing
           )
           6
           "before{{var}}after"
@@ -169,7 +183,7 @@ spec = do
 
       it "should double a var" do
         parseAndTestModifyAstStartingAt
-          ( \ast -> pure ast <> pure ast
+          ( \ast -> map Just <$> pure ast <> pure ast
           )
           6
           "before{{var}}after{{othervar}}"
@@ -185,7 +199,7 @@ spec = do
 
       it "should double a var in a with" do
         parseAndTestModifyAstStartingAt
-          ( \ast -> pure ast <> pure ast
+          ( \ast -> map Just <$> pure ast <> pure ast
           )
           20
           "{{#with objt}}before{{var}}after{{/with}}}"
@@ -195,7 +209,8 @@ parseAndTestInsertTextAt :: forall m. MonadEffect m => MonadThrow Error m => Str
 parseAndTestInsertTextAt insert idx input expected =
   case parse input, parse expected of
     Right inputParsed, Right expectedParsed -> do
-      maybe "insertTextAt returned Nothing" printPositioned (insertTextAt insert idx inputParsed) `shouldEqual` printPositioned expectedParsed
+      maybe "insertTextAt returned Nothing" printPositioned (insertTextAt insert idx inputParsed)
+        `shouldEqual` printPositioned expectedParsed
     _, _ -> fail "failed to parse"
 
 parseAndTestInsertEmptyEachAt :: forall m. MonadEffect m => MonadThrow Error m => String -> Int -> String -> String -> m Unit
@@ -208,7 +223,7 @@ parseAndTestInsertEmptyEachAt insert idx input expected =
 parseAndTestModifyAstStartingAt
   :: forall m p
    . MonadThrow Error m
-  => (AstPos -> List (Ast p))
+  => (AstPos -> List (Ast (Maybe Positions)))
   -> Int
   -> String
   -> String

@@ -2,52 +2,52 @@ module GraphQL.Templater.Ast.Argument.Print where
 
 import Prelude
 
+import Data.Foldable (fold)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import GraphQL.Templater.Ast.Argument (Argument(..), ListValue(..), ObjectValue(..), ArgName(..), Value(..))
-import GraphQL.Templater.Ast.PrintUtils (class PrintKey, PrintResult, atEnd, atStart, combine, mapWithPrevious)
-import GraphQL.Templater.Positions (Positions)
+import GraphQL.Templater.Ast.PrintUtils (mapWithPrevious)
 
-printValue :: forall k. PrintKey k => Value Positions -> PrintResult k
+printValue :: forall a. Value a -> String
 printValue = case _ of
-  Value_StringValue a { start } -> atStart start (show $ unwrap a)
-  Value_IntValue a { start } -> atStart start (show $ unwrap a)
-  Value_FloatValue a { start } -> atStart start (show $ unwrap a)
-  Value_BooleanValue a { start } -> atStart start (show $ unwrap a)
-  Value_NullValue _ { start } -> atStart start "null"
-  Value_EnumValue a { start } -> atStart start (unwrap a)
-  Value_Variable a { start } -> atStart start ("$" <> unwrap a)
-  Value_ListValue list { start, end } -> combine
-    [ atStart start "["
+  Value_StringValue a _ -> (show $ unwrap a)
+  Value_IntValue a _ -> (show $ unwrap a)
+  Value_FloatValue a _ -> (show $ unwrap a)
+  Value_BooleanValue a _ -> (show $ unwrap a)
+  Value_NullValue _ _ -> "null"
+  Value_EnumValue a _ -> (unwrap a)
+  Value_Variable a _ -> ("$" <> unwrap a)
+  Value_ListValue list _ -> fold
+    [ "["
     , printListValues list
-    , atEnd end "]"
+    , "]"
     ]
-  Value_ObjectValue obj { start, end } -> combine
-    [ atStart start "{"
+  Value_ObjectValue obj _ -> fold
+    [ "{"
     , printObjectValues obj
-    , atEnd end "}"
+    , "}"
     ]
   where
-  printListValues :: ListValue Positions -> PrintResult k
-  printListValues (ListValue vals) = combine $ mapWithPrevious printListValue vals
+  printListValues :: ListValue a -> String
+  printListValues (ListValue vals) = fold $ mapWithPrevious printListValue vals
 
-  printListValue :: Maybe (Value Positions) -> Value Positions -> PrintResult k
+  printListValue :: Maybe (Value a) -> Value a -> String
   printListValue prev val = case prev of
-    Just v -> combine [ atStart (getValuePos v).end ", ", printValue val ]
+    Just _v -> fold [ ", ", printValue val ]
     _ -> printValue val
 
-printObjectValues :: forall k. PrintKey k => ObjectValue Positions -> PrintResult k
-printObjectValues (ObjectValue vals) = combine $ mapWithPrevious printObjectValue vals
+printObjectValues :: forall a. ObjectValue a -> String
+printObjectValues (ObjectValue vals) = fold $ mapWithPrevious printObjectValue vals
 
-printObjectValue :: forall k. PrintKey k => Maybe (Argument Positions) -> (Argument Positions) -> PrintResult k
+printObjectValue :: forall a. Maybe (Argument a) -> (Argument a) -> String
 printObjectValue prev (Argument { name, value }) = case prev of
-  Just (Argument prevArg) -> combine [ atStart prevArg.pos.end ", ", printObjectValue' name value ]
+  Just (Argument _) -> fold [ ", ", printObjectValue' name value ]
   _ -> printObjectValue' name value
 
-printObjectValue' :: forall k. PrintKey k => ArgName Positions -> Value Positions -> PrintResult k
-printObjectValue' (ArgName name strPos) value = combine
-  [ atStart strPos.start name
-  , atStart strPos.end ": "
+printObjectValue' :: forall a. ArgName a -> Value a -> String
+printObjectValue' (ArgName name _) value = fold
+  [ name
+  , ": "
   , printValue value
   ]
 

@@ -13,7 +13,6 @@ import GraphQL.Templater.Ast (Ast(..), VarPath(..))
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..), normalizePos, varPathToPosition)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), TypeMap, getTypeAtPath, getTypeMapFromTree)
-import Parsing (Position(..))
 
 data SuggestionState
   = Start
@@ -102,31 +101,15 @@ isAtIdx idx = case _ of
 
 isWithin
   :: Int
-  -> { end :: Position
-     , start :: Position
-     }
-  -> { end :: Position
-     , start :: Position
-     }
+  -> Positions
+  -> Positions
   -> Boolean
 isWithin idx open close = (idx >= getEndIdx open)
   && (idx <= getStartIdx close)
 
 getStartIdx :: Positions -> Int
-getStartIdx { start: Position { index } } = index
-
-getStartColumn :: Positions -> Int
-getStartColumn { start: Position { column } } = column
-
-getStartLine :: Positions -> Int
-getStartLine { start: Position { line } } = line
+getStartIdx { start } = start
 
 getEndIdx :: Positions -> Int
-getEndIdx { end: Position { index } } = index
-
-getEndColumn :: Positions -> Int
-getEndColumn { end: Position { column } } = column
-
-getEndLine :: Positions -> Int
-getEndLine { end: Position { line } } = line
+getEndIdx { end } = end
 

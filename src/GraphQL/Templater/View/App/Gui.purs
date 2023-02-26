@@ -18,6 +18,7 @@ import Effect.Class (class MonadEffect)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), getVartPathPartName)
 import GraphQL.Templater.Ast.Print (printVarPartName)
 import GraphQL.Templater.Ast.Suggest (getAstAt, getStartIdx, getTypeMapAt)
+import GraphQL.Templater.Ast.Transform (justPos, nothingPos)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeMapFromTree)
 import GraphQL.Templater.View.App.Types (Action(..), State)
@@ -77,7 +78,7 @@ gui state =
                   Var vp pos ->
                     [ let
                         path = varPathToDropdownPath vp
-                        setNewVarPath selectedPath _ = pure $ Var (dropdownPathToVarPath vp selectedPath) unit
+                        setNewVarPath selectedPath _ = pure $ Var (dropdownPathToVarPath vp selectedPath) (Just pos)
                       in
                         HH.slot (Proxy :: Proxy "edit_variable") { pos, vp } nestedDropdown
                           { label: printPath path
@@ -90,10 +91,10 @@ gui state =
                           \selectedPath -> ModifyAstAt (setNewVarPath selectedPath) (getStartIdx pos)
                     ]
 
-                  Each vp inner pos _close ->
+                  Each vp inner pos close ->
                     [ let
                         path = varPathToDropdownPath vp
-                        setNewVarPath selectedPath _ = pure $ Each (dropdownPathToVarPath vp selectedPath) (void <$> inner) unit unit
+                        setNewVarPath selectedPath _ = pure $ Each (dropdownPathToVarPath vp selectedPath) (justPos inner) (Just pos) (Just close)
                       in
                         HH.slot (Proxy :: Proxy "edit_each") { pos, vp } nestedDropdown
                           { label: "#each " <> (printPath path)
@@ -106,10 +107,10 @@ gui state =
                           \selectedPath -> ModifyAstAt (setNewVarPath selectedPath) (getStartIdx pos)
 
                     ]
-                  With vp inner pos _close ->
+                  With vp inner pos close ->
                     [ let
                         path = varPathToDropdownPath vp
-                        setNewVarPath selectedPath _ = pure $ With (dropdownPathToVarPath vp selectedPath) (void <$> inner) unit unit
+                        setNewVarPath selectedPath _ = pure $ With (dropdownPathToVarPath vp selectedPath) (justPos inner) (Just pos) (Just close)
                       in
                         HH.slot (Proxy :: Proxy "edit_with") { pos, vp } nestedDropdown
                           { label: "#with " <> (printPath path)
@@ -216,21 +217,25 @@ gui state =
             }
         else []
 
-dropdownPathToVarPath :: VarPath Positions -> Array (VarPartName Unit) -> VarPath Unit
-dropdownPathToVarPath (VarPath varPath _) selectedPath = (VarPath newPath unit)
+dropdownPathToVarPath :: VarPath Positions -> Array (VarPartName Unit) -> VarPath (Maybe Positions)
+dropdownPathToVarPath (VarPath varPath _p) selectedPath = (VarPath newPath Nothing)
   where
-  newPath = fromMaybe' (\_ -> void <$> varPath) $ List.NonEmpty.fromFoldable arrPath
+  newPath = fromMaybe' (\_ -> justPos varPath) $ List.NonEmpty.fromFoldable arrPath
 
-  arrPath = selectedPath # mapWithIndex \pathIdx name ->
-    VarPathPart
-      { name
-      , args: varPath !! pathIdx >>= \(VarPathPart current _) ->
-          if void current.name == name then
-            map void <$> current.args
-          else
-            Nothing
-      }
-      unit
+  arrPath :: Array (VarPathPart (Maybe Positions))
+  arrPath = selectedPath # mapWithIndex \pathIdx name_ ->
+    let
+      name = nothingPos name_
+    in
+      VarPathPart
+        { name
+        , args: varPath !! pathIdx >>= \(VarPathPart current _) ->
+            if void current.name == void name then
+              justPos <$> current.args
+            else
+              Nothing
+        }
+        Nothing
 
 varPathToDropdownPath :: forall p. VarPath p -> Array (VarPartName Unit)
 varPathToDropdownPath (VarPath varPath _) = Array.fromFoldable $ void <<< getVartPathPartName <$> varPath

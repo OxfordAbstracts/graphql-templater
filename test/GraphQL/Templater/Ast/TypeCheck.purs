@@ -17,7 +17,7 @@ import GraphQL.Templater.Ast.TypeCheck.Errors (ArgTypeError(..), PositionedError
 import GraphQL.Templater.Eval.MakeQuery (getAlias)
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeTreeFromDoc)
-import Parsing (ParseError, Position(..), parseErrorMessage, runParser)
+import Parsing (ParseError, parseErrorMessage, runParser)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -54,13 +54,15 @@ spec = do
         errors `shouldEqual`
           ( TypeErrorWithPath (FieldNotFound $ Set.fromFoldable [ "foo" ])
               ( ( Key { name: "bar", alias: Nothing }
-                    { end: (Position { column: 10, index: 9, line: 1 })
-                    , start: (Position { column: 7, index: 6, line: 1 })
+                    { end: 9
+                    , start: 6
+                    , str: "bar"
                     }
                 ) : Nil
               )
-              { end: (Position { column: 10, index: 9, line: 1 })
-              , start: (Position { column: 7, index: 6, line: 1 })
+              { end: 9
+              , start: 6
+              , str: "bar"
               } : Nil
           )
       it "should return multiple errors for multiple incorrect field lookups" do
@@ -221,8 +223,9 @@ spec = do
           ( ( ( TypeErrorWithPath
                   ( ArgTypeError
                       ( ArgUnknown "invalid"
-                          { end: (Position { column: 16, index: 15, line: 1 })
-                          , start: (Position { column: 9, index: 8, line: 1 })
+                          { end: 15
+                          , start: 8
+                          , str: "invalid"
                           }
                       )
                   )
@@ -233,20 +236,23 @@ spec = do
                             , pos: unit
                             }
                         )
-                        { end: (Position { column: 8, index: 7, line: 1 })
-                        , start: (Position { column: 3, index: 2, line: 1 })
+                        { end: 7
+                        , start: 2
+                        , str: "users"
                         }
                     )
                       :
                         ( Key (noAlias "id")
-                            { end: (Position { column: 23, index: 22, line: 1 })
-                            , start: (Position { column: 21, index: 20, line: 1 })
+                            { end: 22
+                            , start: 20
+                            , str: "id"
                             }
                         )
                       : Nil
                   )
-                  { end: (Position { column: 8, index: 7, line: 1 })
-                  , start: (Position { column: 3, index: 2, line: 1 })
+                  { end: 7
+                  , start: 2
+                  , str: "users"
                   }
               ) : Nil
             )
