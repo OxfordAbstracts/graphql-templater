@@ -9,7 +9,7 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), maybe)
 import Data.Tuple (snd)
 import Data.Tuple.Nested ((/\))
-import GraphQL.Templater.Ast (Ast(..), VarPath(..))
+import GraphQL.Templater.Ast (Ast(..), VarPath(..), Args)
 import GraphQL.Templater.JsonPos (NormalizedJsonPos(..), normalizePos, varPathToPosition)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), TypeMap, getTypeAtPath, getTypeMapFromTree)
@@ -74,6 +74,7 @@ getJsonPosPathAt = map normalizePos <<< go Nil
         | isWithin idx open close ->
             go (varPathToPosition varPath <> path) idx inner
       _ -> go path idx tail
+
 
 getAstAt :: Int -> List (Ast Positions) -> Maybe (Ast Positions)
 getAstAt idx = case _ of

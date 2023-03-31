@@ -70,6 +70,7 @@ component =
     , ast: Nil
     , result: ""
     , errors: Nil
+    , schemaDoc: Nothing
     , printedSchema: Nothing
     , schemaTypeTree: Nothing
     , fullQueryCache: Map.empty
@@ -217,6 +218,8 @@ component =
             )
             printAst
             doc
+
+        , schemaDoc = hush doc
         , schemaTypeTree = getTypeTreeFromDoc =<< hush doc
         }
 

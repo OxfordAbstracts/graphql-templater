@@ -7,6 +7,7 @@ import Data.Generic.Rep (class Generic)
 import Data.List (List(..), dropWhile, tail, uncons, (:))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Show.Generic (genericShow)
+import Data.Traversable (class Traversable)
 import GraphQL.Templater.Ast (VarPartName(..), VarPathPart(..), Args)
 import GraphQL.Templater.Eval.MakeQuery (getAlias)
 
@@ -23,12 +24,12 @@ data NormalizedJsonPos a
       a
   | Index Int a
 
-data JsonPosWoAlias a = WoAliasKey String a | WoAliasIndex Int a
-
-removeAlias :: forall a. NormalizedJsonPos a -> JsonPosWoAlias a
-removeAlias = case _ of
-  Key { name, alias: _ } a -> WoAliasKey name a
-  Index idx a -> WoAliasIndex idx a
+getJsonPosArg :: forall a. JsonPos a -> a
+getJsonPosArg = case _ of
+  Parent a -> a
+  Root a -> a
+  Pos (Key _ a) -> a
+  Pos (Index _ a) -> a
 
 varPathToPosition :: forall f a. Foldable f => f (VarPathPart a) -> List (JsonPos a)
 varPathToPosition path = foldl step Nil path
@@ -67,6 +68,8 @@ getKeyStr key = fromMaybe key.name key.alias
 derive instance Generic (JsonPos a) _
 
 derive instance Functor JsonPos
+derive instance Foldable JsonPos
+derive instance Traversable JsonPos
 
 derive instance Eq a => Eq (JsonPos a)
 
@@ -74,6 +77,8 @@ instance Show a => Show (JsonPos a) where
   show = genericShow
 
 derive instance Functor NormalizedJsonPos
+derive instance Traversable NormalizedJsonPos
+derive instance Foldable NormalizedJsonPos
 
 derive instance Generic (NormalizedJsonPos a) _
 

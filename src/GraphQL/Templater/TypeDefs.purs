@@ -2,10 +2,12 @@ module GraphQL.Templater.TypeDefs
   ( GqlTypeTree(..)
   , TypeFieldValue
   , TypeMap
+  , getArgsAtPath
   , getTypeAtPath
   , getTypeMapFromTree
   , getTypeTreeFromDoc
-  ) where
+  )
+  where
 
 import Prelude
 
@@ -49,6 +51,21 @@ getTypeAtPath path tree = case path of
     ListType t -> getTypeAtPath path t
     NonNull t -> getTypeAtPath path t
     Node n -> Just $ Node n
+
+
+getArgsAtPath :: List String -> GqlTypeTree -> Maybe ArgumentsDefinition
+getArgsAtPath path tree = case path of
+  Nil -> Nothing
+  Cons p Nil -> case tree of
+    ObjectType m -> lookup p m <#> force >>> _.args # join
+    ListType t -> getArgsAtPath path t
+    NonNull t -> getArgsAtPath path t
+    Node _n -> Nothing
+  Cons p ps -> case tree of
+    ObjectType m -> lookup p m <#> force >>> _.returns # maybe Nothing (getArgsAtPath ps)
+    ListType t -> getArgsAtPath path t
+    NonNull t -> getArgsAtPath path t
+    Node _n -> Nothing
 
 getTypeTreeFromDoc :: AST.Document -> Maybe GqlTypeTree
 getTypeTreeFromDoc doc =

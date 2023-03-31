@@ -4,6 +4,7 @@ import Prelude
 
 import Data.Argonaut.Core (Json)
 import Data.DateTime.Instant (Instant)
+import Data.GraphQL.AST (Document(..))
 import Data.List (List)
 import Data.Map as Map
 import Data.Maybe (Maybe)
@@ -32,6 +33,7 @@ type State =
   , ast :: List AstPos
   , errors :: List TemplaterError
   , result :: String
+  , schemaDoc :: Maybe Document
   , printedSchema :: Maybe String
   , schemaTypeTree :: Maybe GqlTypeTree
   , fullQueryCache :: Map.Map String Json

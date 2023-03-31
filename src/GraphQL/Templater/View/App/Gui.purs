@@ -7,21 +7,26 @@ import Prelude
 import Data.Array (mapWithIndex)
 import Data.Array as Array
 import Data.Lazy (force)
+import Data.List (List(..), fold, head)
 import Data.List.NonEmpty ((!!))
 import Data.List.NonEmpty as List.NonEmpty
 import Data.Map as Map
-import Data.Maybe (Maybe(..), fromMaybe, fromMaybe')
+import Data.Maybe (Maybe(..), fromMaybe, fromMaybe', maybe)
 import Data.String (joinWith)
 import Data.String as String
 import Data.Tuple.Nested ((/\))
+import Debug (spy)
 import Effect.Class (class MonadEffect)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), getVartPathPartName)
 import GraphQL.Templater.Ast.Print (printVarPartName)
-import GraphQL.Templater.Ast.Suggest (getAstAt, getStartIdx, getTypeMapAt)
+import GraphQL.Templater.Ast.Suggest (getAstAt, getJsonPosPathAt, getStartIdx, getTypeMapAt)
 import GraphQL.Templater.Ast.Transform (justPos, nothingPos)
+import GraphQL.Templater.Ast.TypeCheck (varPathToPosAndArgs)
+import GraphQL.Templater.JsonPos (JsonPos(..), getJsonPosArg, normalizePos)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeMapFromTree)
 import GraphQL.Templater.View.App.Types (Action(..), State)
+import GraphQL.Templater.View.Component.ArgGui (argGui)
 import GraphQL.Templater.View.Component.NestedDropdown (nestedDropdown)
 import GraphQL.Templater.View.Component.NestedDropdown as NestedDropdown
 import GraphQL.Templater.View.Html.Utils (css)
@@ -50,6 +55,12 @@ gui
                  , vp :: VarPath Positions
                  }
            , edit_with ::
+               H.Slot q2 (Array (VarPartName Unit))
+                 { pos :: Positions
+                 , vp :: VarPath Positions
+                 }
+
+           , edit_arg ::
                H.Slot q2 (Array (VarPartName Unit))
                  { pos :: Positions
                  , vp :: VarPath Positions
@@ -89,6 +100,8 @@ gui state =
                                 # getVariableItems
                           }
                           \selectedPath -> ModifyAstAt (setNewVarPath selectedPath) (getStartIdx pos)
+
+                    , argGui' typeTree position pos vp
                     ]
 
                   Each vp inner pos close ->
@@ -106,6 +119,7 @@ gui state =
                           }
                           \selectedPath -> ModifyAstAt (setNewVarPath selectedPath) (getStartIdx pos)
 
+                    , argGui' typeTree position pos vp
                     ]
                   With vp inner pos close ->
                     [ let
@@ -122,6 +136,7 @@ gui state =
                           }
                           \selectedPath -> ModifyAstAt (setNewVarPath selectedPath) (getStartIdx pos)
 
+                    , argGui' typeTree position pos vp
                     ]
 
         _ ->
@@ -216,6 +231,21 @@ gui state =
             , label: name
             }
         else []
+
+  argGui' typeTree position pos vp@(VarPath varPath _) =
+    let
+      contextPos = (map { pos: _, args: Nothing } <<< Pos) <$> (getJsonPosPathAt position asts)
+      jsonPos = varPathToPosAndArgs varPath
+
+      path =
+        map (map void <<< fold <<< _.args) <$>
+          (normalizePos $ jsonPos <> contextPos)
+    in
+      HH.slot_ (Proxy :: Proxy "edit_arg") { pos, vp } argGui
+        { arguments: head jsonPos # maybe Nil (getJsonPosArg >>> _.args >>> maybe Nil (map void))
+        , path
+        , typeTree
+        }
 
 dropdownPathToVarPath :: VarPath Positions -> Array (VarPartName Unit) -> VarPath (Maybe Positions)
 dropdownPathToVarPath (VarPath varPath _p) selectedPath = (VarPath newPath Nothing)
