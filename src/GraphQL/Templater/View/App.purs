@@ -20,6 +20,7 @@ import Data.String (Pattern(..), joinWith, split)
 import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
+import Debug (traceM)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class.Console as Console
 import Effect.Exception (message)
@@ -162,9 +163,9 @@ component =
       loadSchema
     SetHeaders headers -> do
       H.modify_ _ { headers = headers }
-    SetCursorPosition viewUpdate -> setCursorPosition viewUpdate
-    SetTemplate viewUpdate -> do
+    SetCursorPosition viewUpdate -> 
       setCursorPosition viewUpdate
+    SetTemplate viewUpdate -> do
       template <- liftEffect $ getViewUpdateContent viewUpdate
       handleNewTemplate template
     InsertVariable path -> updateAtPath insertVarAt' (nameToPart path)

@@ -48,25 +48,17 @@ gui
            , insert_with :: H.Slot q3 (Array (VarPartName Unit)) Unit
            , edit_variable ::
                H.Slot q2 (Array (VarPartName Unit))
-                 { pos :: Positions
-                 , vp :: VarPath Positions
-                 }
+                 _
            , edit_each ::
                H.Slot q2 (Array (VarPartName Unit))
-                 { pos :: Positions
-                 , vp :: VarPath Positions
-                 }
+                 _
            , edit_with ::
                H.Slot q2 (Array (VarPartName Unit))
-                 { pos :: Positions
-                 , vp :: VarPath Positions
-                 }
+                 _
 
            , edit_arg ::
                H.Slot q2 ArgGui.Output
-                 { pos :: Positions
-                 , vp :: VarPath Positions
-                 }
+                 _
            | r
            )
            m
@@ -93,7 +85,7 @@ gui state =
                         path = varPathToDropdownPath vp
                         setNewVarPath selectedPath _ = pure $ Var (dropdownPathToVarPath vp selectedPath) (Just pos)
                       in
-                        HH.slot (Proxy :: Proxy "edit_variable") { pos, vp } nestedDropdown
+                        HH.slot (Proxy :: Proxy "edit_variable") unit nestedDropdown
                           { label: printPath path
                           , path
                           , items: defer \_ ->
@@ -111,7 +103,7 @@ gui state =
                         path = varPathToDropdownPath vp
                         setNewVarPath selectedPath _ = pure $ Each (dropdownPathToVarPath vp selectedPath) (justPos inner) (Just pos) (Just close)
                       in
-                        HH.slot (Proxy :: Proxy "edit_each") { pos, vp } nestedDropdown
+                        HH.slot (Proxy :: Proxy "edit_each") unit nestedDropdown
                           { label: "#each " <> (printPath path)
                           , path
                           , items: defer \_ ->
@@ -128,7 +120,7 @@ gui state =
                         path = varPathToDropdownPath vp
                         setNewVarPath selectedPath _ = pure $ With (dropdownPathToVarPath vp selectedPath) (justPos inner) (Just pos) (Just close)
                       in
-                        HH.slot (Proxy :: Proxy "edit_with") { pos, vp } nestedDropdown
+                        HH.slot (Proxy :: Proxy "edit_with") unit nestedDropdown
                           { label: "#with " <> (printPath path)
                           , path
                           , items: defer \_ ->
@@ -248,7 +240,7 @@ gui state =
         map (map void <<< fold <<< _.args) <$>
           (normalizePos $ jsonPos <> contextPos)
     in
-      HH.slot (Proxy :: Proxy "edit_arg") { pos, vp } argGui
+      HH.slot (Proxy :: Proxy "edit_arg") {start: pos.start} argGui
         { arguments: head jsonPos # maybe Nil (getJsonPosArg >>> _.args >>> maybe Nil (map void))
         , path
         , typeTree
