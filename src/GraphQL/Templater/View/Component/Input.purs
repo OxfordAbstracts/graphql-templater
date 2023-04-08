@@ -1,7 +1,5 @@
 module GraphQL.Templater.View.Component.Input where
 
-import Prelude
-
 import GraphQL.Templater.View.Html.Utils (css)
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE

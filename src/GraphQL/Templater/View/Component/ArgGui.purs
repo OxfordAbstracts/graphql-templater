@@ -49,7 +49,7 @@ type State =
 
 data Output = NewArgs (Args Unit)
 
-argGui :: forall output m q. H.Component q Input Output m
+argGui :: forall m q. H.Component q Input Output m
 argGui =
   H.mkComponent
     { initialState

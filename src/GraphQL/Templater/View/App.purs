@@ -52,7 +52,6 @@ import Halogen.HTML.Properties as HP
 import Parsing (ParseError(..), Position(..))
 import Parsing.String (parseErrorHuman)
 import Type.Proxy (Proxy(..))
-import Unsafe.Coerce (unsafeCoerce)
 
 component :: forall output m q input. MonadAff m => H.Component q input output m
 component =
@@ -187,9 +186,11 @@ component =
       updateResult
       where
       putNewArgs :: Ast Positions -> List (Ast (Maybe Positions))
-      putNewArgs = pure <<<
+      putNewArgs = pure <<< 
         case _ of
           Var path _ -> Var (updateArgs path) Nothing
+          Each path body _ _ -> Each (updateArgs path) (map nothingPos body) Nothing Nothing
+          With path body _ _ -> With (updateArgs path) (map nothingPos body) Nothing Nothing
           ast -> map Just ast
 
       updateArgs :: VarPath Positions -> VarPath (Maybe Positions)
@@ -205,14 +206,6 @@ component =
               Nothing
         else
           Just <$> VarPathPart part pos
-     -- Each
-    -- With
-    -- Text
-
-    --  Var (VarPath a) a
-    --  Each (VarPath a) (List (Ast a)) a a
-    --  With (VarPath a) (List (Ast a)) a a
-    --  Text String a
     where
     nameToPart = map \name -> VarPathPart { name, args: Nothing } unit
 

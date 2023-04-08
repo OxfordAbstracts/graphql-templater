@@ -7,15 +7,16 @@ import Prelude
 import Data.Array (mapWithIndex)
 import Data.Array as Array
 import Data.Lazy (force)
-import Data.List (List(..), fold, head)
+import Data.List (List(..), fold, head, takeWhile)
+import Data.List as List
 import Data.List.NonEmpty ((!!))
 import Data.List.NonEmpty as List.NonEmpty
+import Data.List.Types (toList)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, fromMaybe', maybe)
 import Data.String (joinWith)
 import Data.String as String
 import Data.Tuple.Nested ((/\))
-import Debug (spy)
 import Effect.Class (class MonadEffect)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), getVartPathPartName)
 import GraphQL.Templater.Ast.Print (printVarPartName)
@@ -233,20 +234,26 @@ gui state =
             }
         else []
 
+  argGui' :: GqlTypeTree -> Int -> Positions -> VarPath Positions -> HH.HTML _ _
   argGui' typeTree position pos vp@(VarPath varPath _) =
     let
-      contextPos = (map { pos: _, args: Nothing } <<< Pos) <$> (getJsonPosPathAt position asts)
-      jsonPos = varPathToPosAndArgs varPath
+      contextPos =
+        (map { pos: _, args: Nothing } <<< Pos) <$> (getJsonPosPathAt position asts)
+
+      varPathAtPosition = toList varPath # takeWhile \(VarPathPart _ p) -> p.start <= position
+
+      jsonPos = varPathToPosAndArgs $ Array.fromFoldable varPathAtPosition
 
       path =
         map (map void <<< fold <<< _.args) <$>
           (normalizePos $ jsonPos <> contextPos)
     in
-      HH.slot_ (Proxy :: Proxy "edit_arg") { pos, vp } argGui
+      HH.slot (Proxy :: Proxy "edit_arg") { pos, vp } argGui
         { arguments: head jsonPos # maybe Nil (getJsonPosArg >>> _.args >>> maybe Nil (map void))
         , path
         , typeTree
         }
+        (HandleArgGuiOutput { startIdx: pos.start, pathIdx: List.length varPathAtPosition  - 1})
 
 dropdownPathToVarPath :: VarPath Positions -> Array (VarPartName Unit) -> VarPath (Maybe Positions)
 dropdownPathToVarPath (VarPath varPath _p) selectedPath = (VarPath newPath Nothing)

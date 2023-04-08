@@ -4,7 +4,7 @@ import Prelude
 
 import Data.Argonaut.Core (Json)
 import Data.DateTime.Instant (Instant)
-import Data.GraphQL.AST (Document(..))
+import Data.GraphQL.AST (Document)
 import Data.List (List)
 import Data.Map as Map
 import Data.Maybe (Maybe)
