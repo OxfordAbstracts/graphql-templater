@@ -27,6 +27,7 @@ import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree(..), getTypeMapFromTree)
 import GraphQL.Templater.View.App.Types (Action(..), State)
 import GraphQL.Templater.View.Component.ArgGui (argGui)
+import GraphQL.Templater.View.Component.ArgGui as ArgGui
 import GraphQL.Templater.View.Component.NestedDropdown (nestedDropdown)
 import GraphQL.Templater.View.Component.NestedDropdown as NestedDropdown
 import GraphQL.Templater.View.Html.Utils (css)
@@ -61,7 +62,7 @@ gui
                  }
 
            , edit_arg ::
-               H.Slot q2 (Array (VarPartName Unit))
+               H.Slot q2 ArgGui.Output
                  { pos :: Positions
                  , vp :: VarPath Positions
                  }

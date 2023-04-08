@@ -11,6 +11,7 @@ import Data.Array.NonEmpty as NonEmpty
 import Data.Array.NonEmpty as NonEmptyArray
 import Data.Either (Either(..), either, hush)
 import Data.Foldable (intercalate)
+import Data.FunctorWithIndex (mapWithIndex)
 import Data.GraphQL.AST.Print (printAst)
 import Data.List (List(..))
 import Data.Map as Map
@@ -24,10 +25,10 @@ import Effect.Class.Console as Console
 import Effect.Exception (message)
 import Effect.Ref as Ref
 import Foreign.Object as Object
-import GraphQL.Templater.Ast (AstPos, VarPathPart(..))
+import GraphQL.Templater.Ast (Ast(..), AstPos, VarPath(..), VarPathPart(..))
 import GraphQL.Templater.Ast.Parser (parse)
 import GraphQL.Templater.Ast.Print (printPositioned)
-import GraphQL.Templater.Ast.Transform (insertEmptyEachAt', insertEmptyWithAt', insertVarAt', modifyAstStartingAt)
+import GraphQL.Templater.Ast.Transform (insertEmptyEachAt', insertEmptyWithAt', insertVarAt', modifyAstStartingAt, nothingPos)
 import GraphQL.Templater.Ast.TypeCheck (getTypeErrorsFromTree)
 import GraphQL.Templater.Ast.TypeCheck.Errors (TypeErrorWithPath(..))
 import GraphQL.Templater.Ast.TypeCheck.Errors.Display (displayPositionedError)
@@ -35,9 +36,11 @@ import GraphQL.Templater.Ast.TypeCheck.Errors.GetPositions (getPositions)
 import GraphQL.Templater.Eval (EvalResult(..), eval)
 import GraphQL.Templater.Eval.MakeQuery (toGqlString)
 import GraphQL.Templater.GetSchema (getGqlDoc)
+import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (getTypeTreeFromDoc)
 import GraphQL.Templater.View.App.Gui (gui)
 import GraphQL.Templater.View.App.Types (Action(..), State, TemplaterError)
+import GraphQL.Templater.View.Component.ArgGui (Output(..))
 import GraphQL.Templater.View.Component.Editor (Diagnostic, Query(..), getViewUpdateContent, getViewUpdateSelectionRanges)
 import GraphQL.Templater.View.Component.Editor as Editor
 import GraphQL.Templater.View.Html.Utils (css)
@@ -49,6 +52,7 @@ import Halogen.HTML.Properties as HP
 import Parsing (ParseError(..), Position(..))
 import Parsing.String (parseErrorHuman)
 import Type.Proxy (Proxy(..))
+import Unsafe.Coerce (unsafeCoerce)
 
 component :: forall output m q input. MonadAff m => H.Component q input output m
 component =
@@ -177,6 +181,38 @@ component =
         }
       updateResult
 
+    HandleArgGuiOutput { startIdx, pathIdx } (NewArgs args) -> do
+      { ast } <- H.get
+      void $ handleNewAst $ modifyAstStartingAt putNewArgs startIdx ast
+      updateResult
+      where
+      putNewArgs :: Ast Positions -> List (Ast (Maybe Positions))
+      putNewArgs = pure <<<
+        case _ of
+          Var path _ -> Var (updateArgs path) Nothing
+          ast -> map Just ast
+
+      updateArgs :: VarPath Positions -> VarPath (Maybe Positions)
+      updateArgs (VarPath path _) = VarPath (mapWithIndex updatePathPartArgs path) Nothing
+
+      updatePathPartArgs :: Int -> VarPathPart Positions -> VarPathPart (Maybe Positions)
+      updatePathPartArgs idx (VarPathPart part@{name} pos) =
+        if idx == pathIdx then
+           VarPathPart 
+              { name: nothingPos name 
+              , args: Just (nothingPos <$> args)
+              }              
+              Nothing
+        else
+          Just <$> VarPathPart part pos
+     -- Each
+    -- With
+    -- Text
+
+    --  Var (VarPath a) a
+    --  Each (VarPath a) (List (Ast a)) a a
+    --  With (VarPath a) (List (Ast a)) a a
+    --  Text String a
     where
     nameToPart = map \name -> VarPathPart { name, args: Nothing } unit
 

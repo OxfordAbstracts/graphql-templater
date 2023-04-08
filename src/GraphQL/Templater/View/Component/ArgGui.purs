@@ -1,5 +1,7 @@
 module GraphQL.Templater.View.Component.ArgGui
   ( argGui
+  , Input
+  , Output(..)
   ) where
 
 import Prelude
@@ -10,16 +12,13 @@ import Data.GraphQL.AST (ArgumentsDefinition(..), Document(..), InputValueDefini
 import Data.GraphQL.AST as AST
 import Data.Int as Int
 import Data.Lens (class Wander, prism', toListOf, traversed)
-import Data.List (List(..), any, findMap, fold, mapMaybe)
+import Data.List (List(..), any, findMap, fold)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Number as Number
 import Data.Profunctor.Choice (class Choice)
-import Data.String.NonEmpty (joinWith)
-import Data.String.NonEmpty as NonEmpty
 import Data.Tuple (Tuple(..), uncurry)
-import Debug (spy)
 import GraphQL.Templater.Ast (Args)
 import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..), NullValue(..), StringValue(..), Value(..))
 import GraphQL.Templater.Ast.Argument as AstArg
@@ -29,8 +28,6 @@ import GraphQL.Templater.View.Html.Input (input, intInput, numberInput)
 import GraphQL.Templater.View.Html.Utils (css)
 import Halogen as H
 import Halogen.HTML as HH
-import Halogen.HTML.Events as HE
-import Halogen.HTML.Properties as HP
 
 data Action
   = Init
@@ -50,7 +47,9 @@ type State =
   , invalidArg :: Maybe { valDef :: InputValueDefinition, val :: String }
   }
 
-argGui :: forall output m q. H.Component q Input output m
+data Output = NewArgs (Args Unit)
+
+argGui :: forall output m q. H.Component q Input Output m
 argGui =
   H.mkComponent
     { initialState
@@ -70,7 +69,7 @@ argGui =
   render st = HH.div
     [ css "p-4" ]
     [ HH.div
-        [ css "pt-2" ]
+        []
         [ renderArguments st ]
     ]
 
@@ -79,7 +78,7 @@ argGui =
     (ArgumentsDefinition argDefs) <- note "No arguments available" $ getArgsAtPath strPath input.typeTree
     pure $ HH.div_
       [ HH.div_ [ HH.text "Arguments" ]
-      , HH.div [ css "pt-2" ] $ Array.fromFoldable argDefs <#> renderInputValueDefinition input.typeTree input.arguments
+      , HH.div [] $ Array.fromFoldable argDefs <#> renderInputValueDefinition input.typeTree input.arguments
       ]
 
     where
@@ -91,48 +90,47 @@ argGui =
 
   renderInputValueDefinition :: GqlTypeTree -> Args Unit -> InputValueDefinition -> HH.HTML _ Action
   renderInputValueDefinition tree args (InputValueDefinition ivd) =
-    HH.div [ css "pt-2" ]
-      case ivd.type of
-        Type_ListType _ -> []
-        _ -> case getInputValueDefinitionTypeName ivd of
-          "String" ->
-            [ input
-                { label: ivd.name
-                , value: fold $ getValueInputString =<< argVal
-                , placeholder: ""
-                , onInput: \str ->
-                    SetArgValue (InputValueDefinition ivd)
-                      $ Right
-                      $ Value_StringValue (StringValue str)
-                }
+    case ivd.type of
+      Type_ListType _ -> HH.text ""
+      _ -> case getInputValueDefinitionTypeName ivd of
+        "String" -> HH.div [ css "pt-3" ]
+          [ input
+              { label: ivd.name
+              , value: fold $ getValueInputString =<< argVal
+              , placeholder: ""
+              , onInput: \str ->
+                  SetArgValue (InputValueDefinition ivd)
+                    $ Right
+                    $ Value_StringValue (StringValue str)
+              }
 
-            ]
-          "Int" ->
-            [ intInput
-                { label: ivd.name
-                , value: Int.fromString =<< getValueInputString =<< argVal
-                , onInput: \str ->
-                    SetArgValue (InputValueDefinition ivd)
-                      $ str
-                          # note "Not an integer"
-                          <#> \int ->
-                            Value_IntValue (AstArg.IntValue int)
-                }
-            ]
-          "Float" ->
-            [ numberInput
-                { label: ivd.name
-                , value: Number.fromString =<< getValueInputString =<< argVal
-                , onInput: \str ->
-                    SetArgValue (InputValueDefinition ivd)
-                      $ str
-                          # note "Not a number"
-                          <#> \num ->
-                            Value_FloatValue (AstArg.FloatValue num)
-                }
-            ]
-          _ -> case getTypeAtPath (pure $ getInputValueDefinitionTypeName ivd) tree of
-            _ -> []
+          ]
+        "Int" -> HH.div [ css "pt-3" ]
+          [ intInput
+              { label: ivd.name
+              , value: Int.fromString =<< getValueInputString =<< argVal
+              , onInput: \str ->
+                  SetArgValue (InputValueDefinition ivd)
+                    $ str
+                        # note "Not an integer"
+                        <#> \int ->
+                          Value_IntValue (AstArg.IntValue int)
+              }
+          ]
+        "Float" -> HH.div [ css "pt-3" ]
+          [ numberInput
+              { label: ivd.name
+              , value: Number.fromString =<< getValueInputString =<< argVal
+              , onInput: \str ->
+                  SetArgValue (InputValueDefinition ivd)
+                    $ str
+                        # note "Not a number"
+                        <#> \num ->
+                          Value_FloatValue (AstArg.FloatValue num)
+              }
+          ]
+        _ -> case getTypeAtPath (pure $ getInputValueDefinitionTypeName ivd) tree of
+          _ -> HH.text ""
     where
     argVal :: Maybe (Value Unit)
     argVal = args # findMap \(Argument a@{ name: ArgName name _ }) ->
@@ -148,8 +146,8 @@ argGui =
     Receive input ->
       H.modify_ _ { input = input }
 
-    SetArgValue (InputValueDefinition ivd) valE ->
-      H.modify_ \state@{ input } ->
+    SetArgValue (InputValueDefinition ivd) valE -> do
+      st <- H.modify \state@{ input } ->
         let
           updateArg = \(Argument a@{ name: ArgName name _ }) ->
             Argument case name == ivd.name, valE of
@@ -164,6 +162,8 @@ argGui =
                 Left val -> Just { valDef: InputValueDefinition ivd, val }
                 _ -> Nothing
             }
+
+      H.raise $ NewArgs st.input.arguments
 
 appendArgIfNotThere :: T_InputValueDefinition -> Args Unit -> Args Unit
 appendArgIfNotThere ivd args =

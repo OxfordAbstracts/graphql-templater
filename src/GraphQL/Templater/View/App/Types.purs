@@ -13,6 +13,7 @@ import GraphQL.Templater.Ast (Ast, AstPos, VarPartName)
 import GraphQL.Templater.Positions (Positions)
 import GraphQL.Templater.TypeDefs (GqlTypeTree)
 import GraphQL.Templater.View.Autocomplete (AutocompleteState)
+import GraphQL.Templater.View.Component.ArgGui as ArgGui
 import GraphQL.Templater.View.Component.Editor (ViewUpdate)
 
 data Action
@@ -25,6 +26,7 @@ data Action
   | InsertEach (Array (VarPartName Unit))
   | InsertWith (Array (VarPartName Unit))
   | ModifyAstAt (AstPos -> List (Ast (Maybe Positions))) Int
+  | HandleArgGuiOutput { startIdx :: Int, pathIdx :: Int } ArgGui.Output 
 
 type State =
   { url :: String
