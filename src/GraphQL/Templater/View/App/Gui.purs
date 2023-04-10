@@ -9,7 +9,7 @@ import Data.Array as Array
 import Data.Lazy (force)
 import Data.List (List(..), fold, head, takeWhile)
 import Data.List as List
-import Data.List.NonEmpty (NonEmptyList(..), (!!))
+import Data.List.NonEmpty (NonEmptyList, (!!))
 import Data.List.NonEmpty as List.NonEmpty
 import Data.List.Types (toList)
 import Data.Map as Map

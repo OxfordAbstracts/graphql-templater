@@ -20,7 +20,6 @@ import Data.String (Pattern(..), joinWith, split)
 import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
-import Debug (traceM)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class.Console as Console
 import Effect.Exception (message)

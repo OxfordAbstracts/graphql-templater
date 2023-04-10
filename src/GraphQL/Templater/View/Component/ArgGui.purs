@@ -19,7 +19,6 @@ import Data.Maybe (Maybe(..))
 import Data.Number as Number
 import Data.Profunctor.Choice (class Choice)
 import Data.Tuple (Tuple(..), uncurry)
-import Debug (spyWith, traceM)
 import GraphQL.Templater.Ast (Args)
 import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..), NullValue(..), StringValue(..), Value(..))
 import GraphQL.Templater.Ast.Argument as AstArg
@@ -77,7 +76,6 @@ argGui =
   renderArguments :: State -> HH.HTML _ Action
   renderArguments _state@{ input } = either nullMsg identity do
     (ArgumentsDefinition argDefs) <- note ("No args available for " <> intercalate "." strPath) $ getArgsAtPath strPath input.typeTree
-    traceM $ show <$> Array.fromFoldable argDefs
     pure $ HH.div_
       [ HH.div [ css "text-sm" ] [ HH.text $ "Args for " <> intercalate "." strPath ]
       , HH.div [] $ Array.fromFoldable argDefs <#> renderInputValueDefinition input.typeTree input.arguments
