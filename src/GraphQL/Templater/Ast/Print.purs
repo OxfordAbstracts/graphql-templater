@@ -157,7 +157,7 @@ printMapArg prev (Argument { name, value }) =
   comma =
     case prev of
       Nothing -> ""
-      Just (Argument _) -> ","
+      Just (Argument _) -> ", "
 
 printMapArgName :: forall a. ArgName a -> String
 printMapArgName (ArgName name _) = fold
