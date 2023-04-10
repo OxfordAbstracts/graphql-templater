@@ -12,13 +12,14 @@ import Data.GraphQL.AST (ArgumentsDefinition(..), Document(..), InputValueDefini
 import Data.GraphQL.AST as AST
 import Data.Int as Int
 import Data.Lens (class Wander, prism', toListOf, traversed)
-import Data.List (List(..), any, findMap, fold)
+import Data.List (List(..), any, findMap, fold, intercalate)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Number as Number
 import Data.Profunctor.Choice (class Choice)
 import Data.Tuple (Tuple(..), uncurry)
+import Debug (spyWith, traceM)
 import GraphQL.Templater.Ast (Args)
 import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..), NullValue(..), StringValue(..), Value(..))
 import GraphQL.Templater.Ast.Argument as AstArg
@@ -75,9 +76,10 @@ argGui =
 
   renderArguments :: State -> HH.HTML _ Action
   renderArguments _state@{ input } = either nullMsg identity do
-    (ArgumentsDefinition argDefs) <- note "No arguments available" $ getArgsAtPath strPath input.typeTree
+    (ArgumentsDefinition argDefs) <- note ("No args available for " <> intercalate "." strPath) $ getArgsAtPath strPath input.typeTree
+    traceM $ show <$> Array.fromFoldable argDefs
     pure $ HH.div_
-      [ HH.div_ [ HH.text "Arguments" ]
+      [ HH.div [ css "text-sm" ] [ HH.text $ "Args for " <> intercalate "." strPath ]
       , HH.div [] $ Array.fromFoldable argDefs <#> renderInputValueDefinition input.typeTree input.arguments
       ]
 
@@ -86,7 +88,7 @@ argGui =
       Key { name } _ -> pure name
       Index _ _ -> Nil
 
-    nullMsg str = HH.div [ css "text-gray-400 text-md" ] [ HH.text str ]
+    nullMsg str = HH.div [ css "text-gray-400 text-sm" ] [ HH.text str ]
 
   renderInputValueDefinition :: GqlTypeTree -> Args Unit -> InputValueDefinition -> HH.HTML _ Action
   renderInputValueDefinition tree args (InputValueDefinition ivd) =

@@ -9,7 +9,7 @@ import Data.Array as Array
 import Data.Lazy (force)
 import Data.List (List(..), fold, head, takeWhile)
 import Data.List as List
-import Data.List.NonEmpty ((!!))
+import Data.List.NonEmpty (NonEmptyList(..), (!!))
 import Data.List.NonEmpty as List.NonEmpty
 import Data.List.Types (toList)
 import Data.Map as Map
@@ -48,17 +48,17 @@ gui
            , insert_with :: H.Slot q3 (Array (VarPartName Unit)) Unit
            , edit_variable ::
                H.Slot q2 (Array (VarPartName Unit))
-                 _
+                 (NonEmptyList (VarPartName Unit))
            , edit_each ::
                H.Slot q2 (Array (VarPartName Unit))
-                 _
+                 (NonEmptyList (VarPartName Unit))
            , edit_with ::
                H.Slot q2 (Array (VarPartName Unit))
-                 _
+                 (NonEmptyList (VarPartName Unit))
 
            , edit_arg ::
                H.Slot q2 ArgGui.Output
-                 _
+                 Int
            | r
            )
            m
@@ -85,7 +85,7 @@ gui state =
                         path = varPathToDropdownPath vp
                         setNewVarPath selectedPath _ = pure $ Var (dropdownPathToVarPath vp selectedPath) (Just pos)
                       in
-                        HH.slot (Proxy :: Proxy "edit_variable") unit nestedDropdown
+                        HH.slot (Proxy :: Proxy "edit_variable") (getVartPathPartName <$>  pathParts vp) nestedDropdown
                           { label: printPath path
                           , path
                           , items: defer \_ ->
@@ -103,7 +103,7 @@ gui state =
                         path = varPathToDropdownPath vp
                         setNewVarPath selectedPath _ = pure $ Each (dropdownPathToVarPath vp selectedPath) (justPos inner) (Just pos) (Just close)
                       in
-                        HH.slot (Proxy :: Proxy "edit_each") unit nestedDropdown
+                        HH.slot (Proxy :: Proxy "edit_each") (getVartPathPartName <$>  pathParts vp) nestedDropdown
                           { label: "#each " <> (printPath path)
                           , path
                           , items: defer \_ ->
@@ -120,7 +120,7 @@ gui state =
                         path = varPathToDropdownPath vp
                         setNewVarPath selectedPath _ = pure $ With (dropdownPathToVarPath vp selectedPath) (justPos inner) (Just pos) (Just close)
                       in
-                        HH.slot (Proxy :: Proxy "edit_with") unit nestedDropdown
+                        HH.slot (Proxy :: Proxy "edit_with") (getVartPathPartName <$>  pathParts vp) nestedDropdown
                           { label: "#with " <> (printPath path)
                           , path
                           , items: defer \_ ->
@@ -240,12 +240,12 @@ gui state =
         map (map void <<< fold <<< _.args) <$>
           (normalizePos $ jsonPos <> contextPos)
     in
-      HH.slot (Proxy :: Proxy "edit_arg") {start: pos.start} argGui
+      HH.slot (Proxy :: Proxy "edit_arg") pos.start argGui
         { arguments: head jsonPos # maybe Nil (getJsonPosArg >>> _.args >>> maybe Nil (map void))
         , path
         , typeTree
         }
-        (HandleArgGuiOutput { startIdx: pos.start, pathIdx: List.length varPathAtPosition  - 1})
+        (HandleArgGuiOutput { startIdx: pos.start, pathIdx: List.length varPathAtPosition - 1 })
 
 dropdownPathToVarPath :: VarPath Positions -> Array (VarPartName Unit) -> VarPath (Maybe Positions)
 dropdownPathToVarPath (VarPath varPath _p) selectedPath = (VarPath newPath Nothing)
@@ -272,3 +272,6 @@ varPathToDropdownPath (VarPath varPath _) = Array.fromFoldable $ void <<< getVar
 
 printPath :: forall a. Array (VarPartName a) -> String
 printPath path = joinWith "." $ map printVarPartName path
+
+pathParts :: VarPath Positions -> NonEmptyList (VarPathPart Unit)
+pathParts (VarPath varPath _) = map void varPath
