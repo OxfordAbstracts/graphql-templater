@@ -16,6 +16,7 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, fromMaybe', maybe)
 import Data.String (joinWith)
 import Data.String as String
+import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
 import Effect.Class (class MonadEffect)
 import GraphQL.Templater.Ast (Ast(..), VarPartName(..), VarPath(..), VarPathPart(..), getVartPathPartName)
@@ -58,7 +59,7 @@ gui
 
            , edit_arg ::
                H.Slot q2 ArgGui.Output
-                 Int
+                 (Tuple Int (List (VarPartName Unit)))
            | r
            )
            m
@@ -240,7 +241,7 @@ gui state =
         map (map void <<< fold <<< _.args) <$>
           (normalizePos $ jsonPos <> contextPos)
     in
-      HH.slot (Proxy :: Proxy "edit_arg") pos.start argGui
+      HH.slot (Proxy :: Proxy "edit_arg") (Tuple pos.start (map (getVartPathPartName >>> void) varPathAtPosition)) argGui
         { arguments: head jsonPos # maybe Nil (getJsonPosArg >>> _.args >>> maybe Nil (map void))
         , path
         , typeTree

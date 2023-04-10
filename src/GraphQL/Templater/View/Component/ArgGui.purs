@@ -13,6 +13,7 @@ import Data.GraphQL.AST as AST
 import Data.Int as Int
 import Data.Lens (class Wander, prism', toListOf, traversed)
 import Data.List (List(..), any, findMap, fold, intercalate)
+import Data.List as List
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
@@ -32,7 +33,7 @@ import Halogen.HTML as HH
 data Action
   = Init
   | Receive Input
-  | SetArgValue InputValueDefinition
+  | SetArgValue InputValueDefinition String
       ( Either String (Unit -> Value Unit)
       )
 
@@ -99,7 +100,7 @@ argGui =
               , value: fold $ getValueInputString =<< argVal
               , placeholder: ""
               , onInput: \str ->
-                  SetArgValue (InputValueDefinition ivd)
+                  SetArgValue (InputValueDefinition ivd) str
                     $ Right
                     $ Value_StringValue (StringValue str)
               }
@@ -109,9 +110,9 @@ argGui =
           [ intInput
               { label: ivd.name
               , value: Int.fromString =<< getValueInputString =<< argVal
-              , onInput: \str ->
-                  SetArgValue (InputValueDefinition ivd)
-                    $ str
+              , onInput: \str intM ->
+                  SetArgValue (InputValueDefinition ivd) str
+                    $ intM
                         # note "Not an integer"
                         <#> \int ->
                           Value_IntValue (AstArg.IntValue int)
@@ -121,9 +122,9 @@ argGui =
           [ numberInput
               { label: ivd.name
               , value: Number.fromString =<< getValueInputString =<< argVal
-              , onInput: \str ->
-                  SetArgValue (InputValueDefinition ivd)
-                    $ str
+              , onInput: \str numberM ->
+                  SetArgValue (InputValueDefinition ivd) str
+                    $ numberM
                         # note "Not a number"
                         <#> \num ->
                           Value_FloatValue (AstArg.FloatValue num)
@@ -146,7 +147,7 @@ argGui =
     Receive input ->
       H.modify_ _ { input = input }
 
-    SetArgValue (InputValueDefinition ivd) valE -> do
+    SetArgValue (InputValueDefinition ivd) str valE -> do
       st <- H.modify \state@{ input } ->
         let
           updateArg = \(Argument a@{ name: ArgName name _ }) ->
@@ -156,7 +157,11 @@ argGui =
         in
           state
             { input = input
-                { arguments = appendArgIfNotThere ivd input.arguments <#> updateArg
+                { arguments =
+                    -- if either (eq "") (const false) valE then
+                    --   List.filter ?d input.arguments
+                    -- else
+                      appendArgIfNotThere ivd input.arguments <#> updateArg
                 }
             , invalidArg = case valE of
                 Left val -> Just { valDef: InputValueDefinition ivd, val }

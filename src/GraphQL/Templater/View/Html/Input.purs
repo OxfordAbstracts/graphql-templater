@@ -28,21 +28,21 @@ input
   -> HH.HTML w i
 input = input_ <<< Record.merge { props: [] }
 
-numberInput :: forall w i. { label :: String, value :: Maybe Number, onInput :: Maybe Number -> i } -> HH.HTML w i
+numberInput :: forall w i. { label :: String, value :: Maybe Number, onInput :: String -> Maybe Number -> i } -> HH.HTML w i
 numberInput { label, value, onInput } = input_
   { label
   , value: maybe "" show value
   , placeholder: ""
-  , onInput: onInput <<< Number.fromString
+  , onInput: \str -> onInput str (Number.fromString str)
   , props: [ HP.type_ InputNumber ]
   }
 
-intInput :: forall w i. { label :: String, value :: Maybe Int, onInput :: Maybe Int -> i } -> HH.HTML w i
+intInput :: forall w i. { label :: String, value :: Maybe Int, onInput :: String -> Maybe Int -> i } -> HH.HTML w i
 intInput { label, value, onInput } = input_
   { label
   , value: maybe "" show value
   , placeholder: ""
-  , onInput: onInput <<< Int.fromString
+  , onInput: \str -> onInput str (Int.fromString str)
   , props:
       [ HP.type_ InputNumber
       , HP.step $ HP.Step 1.0
