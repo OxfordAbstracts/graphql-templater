@@ -20,6 +20,7 @@ import Data.Maybe (Maybe(..))
 import Data.Number as Number
 import Data.Profunctor.Choice (class Choice)
 import Data.Tuple (Tuple(..), uncurry)
+import Debug (spy)
 import GraphQL.Templater.Ast (Args)
 import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..), NullValue(..), StringValue(..), Value(..))
 import GraphQL.Templater.Ast.Argument as AstArg
@@ -158,9 +159,10 @@ argGui =
           state
             { input = input
                 { arguments =
-                    -- if either (eq "") (const false) valE then
-                    --   List.filter ?d input.arguments
-                    -- else
+                    if either (\_ -> str == "") (const false) valE then
+                      input.arguments # List.filter \(Argument { name: ArgName name _ }) ->
+                        name /= ivd.name
+                    else
                       appendArgIfNotThere ivd input.arguments <#> updateArg
                 }
             , invalidArg = case valE of
