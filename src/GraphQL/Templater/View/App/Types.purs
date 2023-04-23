@@ -1,3 +1,4 @@
+
 module GraphQL.Templater.View.App.Types where
 
 import Prelude

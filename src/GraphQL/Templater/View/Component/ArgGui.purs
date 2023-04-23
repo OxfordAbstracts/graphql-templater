@@ -36,6 +36,7 @@ import GraphQL.Templater.TypeDefs (GqlTypeTree, getArgsAtPath, getTypeAtPath, ge
 import GraphQL.Templater.TypeDefs as TypeDefs
 import GraphQL.Templater.View.Component.Checkbox (checkbox)
 import GraphQL.Templater.View.Component.NestedDropdown (DropdownItem(..), nestedDropdown)
+import GraphQL.Templater.View.Component.SelectMenu (selectMenu)
 import GraphQL.Templater.View.Html.Input (input, intInput, numberInput)
 import GraphQL.Templater.View.Html.Utils (css)
 import Halogen as H
@@ -180,12 +181,30 @@ argGui =
       renderTypeTree = case _ of
         TypeDefs.Node nodeName -> HH.text $ show typeName <> " Node type not found: " <> nodeName
         TypeDefs.EnumNode { name, values } ->
-          HH.slot_ (Proxy :: Proxy "enum_dropdown") name nestedDropdown
-            { label: name
-            , path: []
-            , items: pure $ Array.fromFoldable values <#> \id -> Node { id, label: id }
+          HH.div [ css "pt-3" ] $ pure
+            $ selectMenu ivd.name
+            $ Array.fromFoldable
+            $ nullValue :
+                ( values <#> \value ->
+                    { value
+                    , selected: current == Just value
+                    , onClick: \_ ->
+                        SetArgValue (InputValueDefinition ivd) value
+                          $ Right
+                          $ Value_EnumValue (AstArg.EnumValue value)
+                    }
+                )
+          where
+          nullValue =
+            { onClick: \_ ->
+                SetArgValue (InputValueDefinition ivd) ""
+                  $ Right
+                  $ Value_NullValue AstArg.NullValue
+            , selected: current == Just "" || current == Nothing
+            , value: ""
             }
-        --  HH.text $ show typeName <> " Node type not found: " <> name
+          current =  getValueInputString =<< argVal
+          
         TypeDefs.ObjectType obj -> HH.text $ show typeName <> " Object type: " <> show (Map.keys obj)
         TypeDefs.ListType l -> renderTypeTree l
         TypeDefs.NonNull n -> renderTypeTree n
