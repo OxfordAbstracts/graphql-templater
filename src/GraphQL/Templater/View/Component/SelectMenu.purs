@@ -11,13 +11,13 @@ import Web.UIEvent.MouseEvent (MouseEvent)
 selectMenu
   :: forall w i
    . String
+  -> (String -> i)
   -> Array
-       { onClick :: MouseEvent -> i
-       , selected :: Boolean
+       { selected :: Boolean
        , value :: String
        }
   -> HH.HTML w i
-selectMenu label options =
+selectMenu label onChange options =
   HH.div
     []
     [ HH.label
@@ -25,13 +25,13 @@ selectMenu label options =
         [ HH.text label ]
     , HH.select
         [ css "mt-2 block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-blue-600 sm:text-sm sm:leading-6"
+        , HE.onValueChange onChange
         ]
         $
-          options <#> \{ value, selected, onClick } ->
+          options <#> \{ value, selected } ->
             HH.option
               [ HP.value value
               , HP.selected selected
-              , HE.onClick onClick
               ]
               [ HH.text value ]
     ]

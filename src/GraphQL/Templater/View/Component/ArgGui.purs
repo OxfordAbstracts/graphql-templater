@@ -7,7 +7,6 @@ module GraphQL.Templater.View.Component.ArgGui
 import Prelude
 
 import Data.Array as Array
-import Data.Bifunctor (lmap)
 import Data.Either (Either(..), either, note)
 import Data.GraphQL.AST (ArgumentsDefinition(..), Document(..), InputValueDefinition(..), ListType(..), NamedType(..), NonNullType(..), Type(..), T_InputValueDefinition)
 import Data.GraphQL.AST as AST
@@ -24,24 +23,20 @@ import Data.Profunctor.Choice (class Choice)
 import Data.Set (Set)
 import Data.Set as Set
 import Data.Tuple (Tuple(..), uncurry)
-import Debug (spy, spyWith)
+import Debug (traceM)
 import Effect.Class (class MonadEffect)
-import Foreign.Object (Object)
-import Foreign.Object as Object
 import GraphQL.Templater.Ast (Args)
 import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..), NullValue(..), StringValue(..), Value(..))
 import GraphQL.Templater.Ast.Argument as AstArg
-import GraphQL.Templater.JsonPos (NormalizedJsonPos(..), getKey, toTypeTreeLookupString)
-import GraphQL.Templater.TypeDefs (GqlTypeTree, getArgsAtPath, getTypeAtPath, getTypeMapFromTree)
+import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
+import GraphQL.Templater.TypeDefs (GqlTypeTree, getArgsAtPath)
 import GraphQL.Templater.TypeDefs as TypeDefs
 import GraphQL.Templater.View.Component.Checkbox (checkbox)
-import GraphQL.Templater.View.Component.NestedDropdown (DropdownItem(..), nestedDropdown)
 import GraphQL.Templater.View.Component.SelectMenu (selectMenu)
 import GraphQL.Templater.View.Html.Input (input, intInput, numberInput)
 import GraphQL.Templater.View.Html.Utils (css)
 import Halogen as H
 import Halogen.HTML as HH
-import Type.Proxy (Proxy(..))
 
 data Action
   = Init
@@ -115,7 +110,7 @@ argGui =
       ]
 
     where
-    allTypesMap = spyWith "all types " (Array.fromFoldable <<< Map.keys) state.input.allTypesMap
+    allTypesMap = state.input.allTypesMap
     args = state.input.arguments
     argInput =
       case typeName of
@@ -183,28 +178,25 @@ argGui =
         TypeDefs.EnumNode { name, values } ->
           HH.div [ css "pt-3" ] $ pure
             $ selectMenu ivd.name
+                ( \value ->
+                    SetArgValue (InputValueDefinition ivd) value
+                      $ Right
+                      $ Value_EnumValue (AstArg.EnumValue value)
+                )
             $ Array.fromFoldable
             $ nullValue :
                 ( values <#> \value ->
                     { value
                     , selected: current == Just value
-                    , onClick: \_ ->
-                        SetArgValue (InputValueDefinition ivd) value
-                          $ Right
-                          $ Value_EnumValue (AstArg.EnumValue value)
                     }
                 )
           where
           nullValue =
-            { onClick: \_ ->
-                SetArgValue (InputValueDefinition ivd) ""
-                  $ Right
-                  $ Value_NullValue AstArg.NullValue
-            , selected: current == Just "" || current == Nothing
+            { selected: current == Just "" || current == Nothing
             , value: ""
             }
-          current =  getValueInputString =<< argVal
-          
+          current = getValueInputString =<< argVal
+
         TypeDefs.ObjectType obj -> HH.text $ show typeName <> " Object type: " <> show (Map.keys obj)
         TypeDefs.ListType l -> renderTypeTree l
         TypeDefs.NonNull n -> renderTypeTree n
@@ -242,6 +234,7 @@ argGui =
       raiseNewArgs
 
     SetArgValue (InputValueDefinition ivd) str valE -> do
+      traceM { ivd, str, valE }
       H.modify_ \state@{ input } ->
         let
           updateArg = \(Argument a@{ name: ArgName name _ }) ->
