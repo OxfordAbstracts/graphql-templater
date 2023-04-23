@@ -245,6 +245,7 @@ gui state =
         { arguments: head jsonPos # maybe Nil (getJsonPosArg >>> _.args >>> maybe Nil (map void))
         , path
         , typeTree
+        , allTypesMap: state.allTypesMap
         }
         (HandleArgGuiOutput { startIdx: pos.start, pathIdx: List.length varPathAtPosition - 1 })
 

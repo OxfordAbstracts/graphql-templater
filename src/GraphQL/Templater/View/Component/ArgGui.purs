@@ -1,35 +1,46 @@
 module GraphQL.Templater.View.Component.ArgGui
-  ( argGui
-  , Input
+  ( Input
   , Output(..)
+  , argGui
   ) where
 
 import Prelude
 
 import Data.Array as Array
+import Data.Bifunctor (lmap)
 import Data.Either (Either(..), either, note)
-import Data.GraphQL.AST (ArgumentsDefinition(..), Document(..), InputValueDefinition(..), ListType(..), NamedType(..), NonNullType(..), T_InputValueDefinition, Type(..))
+import Data.GraphQL.AST (ArgumentsDefinition(..), Document(..), InputValueDefinition(..), ListType(..), NamedType(..), NonNullType(..), Type(..), T_InputValueDefinition)
 import Data.GraphQL.AST as AST
 import Data.Int as Int
+import Data.Lazy (Lazy, force)
 import Data.Lens (class Wander, prism', toListOf, traversed)
-import Data.List (List(..), any, findMap, fold, intercalate)
+import Data.List (List(..), any, findMap, fold, intercalate, (:))
 import Data.List as List
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Number as Number
 import Data.Profunctor.Choice (class Choice)
+import Data.Set (Set)
+import Data.Set as Set
 import Data.Tuple (Tuple(..), uncurry)
-import Debug (spy)
+import Debug (spy, spyWith)
+import Effect.Class (class MonadEffect)
+import Foreign.Object (Object)
+import Foreign.Object as Object
 import GraphQL.Templater.Ast (Args)
 import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..), NullValue(..), StringValue(..), Value(..))
 import GraphQL.Templater.Ast.Argument as AstArg
-import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
-import GraphQL.Templater.TypeDefs (GqlTypeTree, getArgsAtPath, getTypeAtPath)
+import GraphQL.Templater.JsonPos (NormalizedJsonPos(..), getKey, toTypeTreeLookupString)
+import GraphQL.Templater.TypeDefs (GqlTypeTree, getArgsAtPath, getTypeAtPath, getTypeMapFromTree)
+import GraphQL.Templater.TypeDefs as TypeDefs
+import GraphQL.Templater.View.Component.Checkbox (checkbox)
+import GraphQL.Templater.View.Component.NestedDropdown (DropdownItem(..), nestedDropdown)
 import GraphQL.Templater.View.Html.Input (input, intInput, numberInput)
 import GraphQL.Templater.View.Html.Utils (css)
 import Halogen as H
 import Halogen.HTML as HH
+import Type.Proxy (Proxy(..))
 
 data Action
   = Init
@@ -37,21 +48,24 @@ data Action
   | SetArgValue InputValueDefinition String
       ( Either String (Unit -> Value Unit)
       )
+  | ToggleArgEnabled T_InputValueDefinition
 
 type Input =
   { path :: List (NormalizedJsonPos (Args Unit))
   , arguments :: Args Unit
   , typeTree :: GqlTypeTree
+  , allTypesMap :: Map String (Lazy GqlTypeTree)
   }
 
 type State =
   { input :: Input
   , invalidArg :: Maybe { valDef :: InputValueDefinition, val :: String }
+  , disabledArgs :: Set String
   }
 
 data Output = NewArgs (Args Unit)
 
-argGui :: forall m q. H.Component q Input Output m
+argGui :: forall m q. MonadEffect m => H.Component q Input Output m
 argGui =
   H.mkComponent
     { initialState
@@ -66,6 +80,7 @@ argGui =
   initialState =
     { input: _
     , invalidArg: Nothing
+    , disabledArgs: Set.empty
     }
 
   render st = HH.div
@@ -76,11 +91,11 @@ argGui =
     ]
 
   renderArguments :: State -> HH.HTML _ Action
-  renderArguments _state@{ input } = either nullMsg identity do
+  renderArguments state@{ input } = either nullMsg identity do
     (ArgumentsDefinition argDefs) <- note ("No args available for " <> intercalate "." strPath) $ getArgsAtPath strPath input.typeTree
     pure $ HH.div_
       [ HH.div [ css "text-sm" ] [ HH.text $ "Args for " <> intercalate "." strPath ]
-      , HH.div [] $ Array.fromFoldable argDefs <#> renderInputValueDefinition input.typeTree input.arguments
+      , HH.div [] $ Array.fromFoldable argDefs <#> renderInputValueDefinition state
       ]
 
     where
@@ -90,11 +105,19 @@ argGui =
 
     nullMsg str = HH.div [ css "text-gray-400 text-sm" ] [ HH.text str ]
 
-  renderInputValueDefinition :: GqlTypeTree -> Args Unit -> InputValueDefinition -> HH.HTML _ Action
-  renderInputValueDefinition tree args (InputValueDefinition ivd) =
-    case ivd.type of
-      Type_ListType _ -> HH.text ""
-      _ -> case getInputValueDefinitionTypeName ivd of
+  renderInputValueDefinition :: State -> InputValueDefinition -> HH.HTML _ Action
+  renderInputValueDefinition state (InputValueDefinition ivd) =
+    HH.div
+      [ css "flex" ]
+      [ argInput
+      , enabledToggle
+      ]
+
+    where
+    allTypesMap = spyWith "all types " (Array.fromFoldable <<< Map.keys) state.input.allTypesMap
+    args = state.input.arguments
+    argInput =
+      case typeName of
         "String" -> HH.div [ css "pt-3" ]
           [ input
               { label: ivd.name
@@ -131,15 +154,55 @@ argGui =
                           Value_FloatValue (AstArg.FloatValue num)
               }
           ]
-        _ -> case getTypeAtPath (pure $ getInputValueDefinitionTypeName ivd) tree of
-          _ -> HH.text ""
-    where
-    argVal :: Maybe (Value Unit)
-    argVal = args # findMap \(Argument a@{ name: ArgName name _ }) ->
-      if name == ivd.name then
-        Just (void a.value)
-      else
-        Nothing
+        "Boolean" -> HH.div [ css "pt-3" ]
+          [ HH.div [ css "pl-4 pt-4" ]
+              [ checkbox
+                  ( SetArgValue (InputValueDefinition ivd) (show notVal)
+                      $ Right
+                      $ Value_BooleanValue (AstArg.BooleanValue notVal)
+                  )
+                  val
+              ]
+          ]
+          where
+          val = fromMaybe false $ getValueInputBoolean =<< argVal
+          notVal = not val
+        namedType -> renderNamedType namedType
+      where
+      typeName = getInputValueDefinitionTypeName ivd
+
+      renderNamedType :: String -> HH.HTML _ Action
+      renderNamedType namedType = case force <$> Map.lookup namedType allTypesMap of
+        Nothing -> HH.text $ "Type not found: " <> namedType
+        Just typeTree -> renderTypeTree typeTree
+
+      renderTypeTree :: GqlTypeTree -> HH.HTML _ Action
+      renderTypeTree = case _ of
+        TypeDefs.Node nodeName -> HH.text $ show typeName <> " Node type not found: " <> nodeName
+        TypeDefs.EnumNode { name, values } ->
+          HH.slot_ (Proxy :: Proxy "enum_dropdown") name nestedDropdown
+            { label: name
+            , path: []
+            , items: pure $ Array.fromFoldable values <#> \id -> Node { id, label: id }
+            }
+        --  HH.text $ show typeName <> " Node type not found: " <> name
+        TypeDefs.ObjectType obj -> HH.text $ show typeName <> " Object type: " <> show (Map.keys obj)
+        TypeDefs.ListType l -> renderTypeTree l
+        TypeDefs.NonNull n -> renderTypeTree n
+
+      argVal :: Maybe (Value Unit)
+      argVal = args # findMap \(Argument a@{ name: ArgName name _ }) ->
+        if name == ivd.name then
+          Just (void a.value)
+        else
+          Nothing
+
+    enabledToggle =
+      HH.div [ css "pl-4 pt-4" ]
+        [ checkbox
+            (ToggleArgEnabled ivd)
+            (not $ Set.member ivd.name state.disabledArgs)
+        ]
 
   handleAction :: Action -> H.HalogenM State Action _ _ m Unit
   handleAction = case _ of
@@ -148,8 +211,19 @@ argGui =
     Receive input ->
       H.modify_ _ { input = input }
 
+    ToggleArgEnabled ivd -> do
+      st <- H.get
+      H.modify_ _
+        { disabledArgs =
+            if Set.member ivd.name st.disabledArgs then
+              Set.delete ivd.name st.disabledArgs
+            else
+              Set.insert ivd.name st.disabledArgs
+        }
+      raiseNewArgs
+
     SetArgValue (InputValueDefinition ivd) str valE -> do
-      st <- H.modify \state@{ input } ->
+      H.modify_ \state@{ input } ->
         let
           updateArg = \(Argument a@{ name: ArgName name _ }) ->
             Argument case name == ivd.name, valE of
@@ -170,7 +244,12 @@ argGui =
                 _ -> Nothing
             }
 
-      H.raise $ NewArgs st.input.arguments
+      raiseNewArgs
+
+  raiseNewArgs = do
+    st <- H.get
+    H.raise $ NewArgs $ st.input.arguments # List.filter \(Argument { name: ArgName name _ }) ->
+      not $ Set.member name st.disabledArgs
 
 appendArgIfNotThere :: T_InputValueDefinition -> Args Unit -> Args Unit
 appendArgIfNotThere ivd args =
@@ -239,4 +318,9 @@ getValueInputString = case _ of
   Value_FloatValue (AstArg.FloatValue s) _ -> Just $ show s
   Value_BooleanValue (AstArg.BooleanValue s) _ -> Just $ show s
   Value_EnumValue (AstArg.EnumValue s) _ -> Just $ show s
+  _ -> Nothing
+
+getValueInputBoolean :: forall a. Value a -> Maybe Boolean
+getValueInputBoolean = case _ of
+  Value_BooleanValue (AstArg.BooleanValue s) _ -> Just s
   _ -> Nothing

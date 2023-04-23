@@ -102,6 +102,7 @@ throwParser = case _ of
 showGqlTypeTree :: GqlTypeTree -> String
 showGqlTypeTree = case _ of
   Node n -> "(Node " <> show n <> ")"
+  EnumNode n -> "(EnumNode " <> show n <> ")"
   ObjectType m -> "(ObjectType " <> show (Array.fromFoldable $ Map.keys m) <> ")"
   ListType t -> "(ListType " <> showGqlTypeTree t <> ")"
   NonNull t -> "(NonNull " <> showGqlTypeTree t <> ")"

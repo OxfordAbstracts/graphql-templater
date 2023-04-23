@@ -20,6 +20,7 @@ import Data.String (Pattern(..), joinWith, split)
 import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
+import Debug (spy)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class.Console as Console
 import Effect.Exception (message)
@@ -37,7 +38,7 @@ import GraphQL.Templater.Eval (EvalResult(..), eval)
 import GraphQL.Templater.Eval.MakeQuery (toGqlString)
 import GraphQL.Templater.GetSchema (getGqlDoc)
 import GraphQL.Templater.Positions (Positions)
-import GraphQL.Templater.TypeDefs (getTypeTreeFromDoc)
+import GraphQL.Templater.TypeDefs (getDefMap, getDefMapFromDoc, getTypeTreeFromDoc)
 import GraphQL.Templater.View.App.Gui (gui)
 import GraphQL.Templater.View.App.Types (Action(..), State, TemplaterError)
 import GraphQL.Templater.View.Component.ArgGui (Output(..))
@@ -76,6 +77,7 @@ component =
     , schemaDoc: Nothing
     , printedSchema: Nothing
     , schemaTypeTree: Nothing
+    , allTypesMap: Map.empty
     , fullQueryCache: Map.empty
     , mostRecentEval: Nothing
     , autocompleteState: Nothing
@@ -249,7 +251,8 @@ component =
             doc
 
         , schemaDoc = hush doc
-        , schemaTypeTree = getTypeTreeFromDoc =<< hush doc
+        , schemaTypeTree = getTypeTreeFromDoc =<< hush doc -- TODO use same type tree for both here and below
+        , allTypesMap = either (const Map.empty) getDefMapFromDoc doc
         }
 
     handleNewAst ast = do

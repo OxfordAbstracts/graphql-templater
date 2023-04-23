@@ -4,7 +4,7 @@ import Prelude
 
 import Data.Foldable (class Foldable, foldl)
 import Data.Generic.Rep (class Generic)
-import Data.List (List(..), dropWhile, tail, uncons, (:))
+import Data.List (List(..), dropWhile, mapMaybe, tail, uncons, (:))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Show.Generic (genericShow)
 import Data.Traversable (class Traversable)
@@ -23,6 +23,11 @@ data NormalizedJsonPos a
       }
       a
   | Index Int a
+
+toTypeTreeLookupString :: forall a. List (NormalizedJsonPos a )-> List String
+toTypeTreeLookupString = mapMaybe case _ of 
+  Key { name } _ -> Just name 
+  Index _ _ -> Nothing
 
 getJsonPosArg :: forall a. JsonPos a -> a
 getJsonPosArg = case _ of

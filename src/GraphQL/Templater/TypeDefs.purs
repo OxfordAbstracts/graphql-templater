@@ -3,11 +3,12 @@ module GraphQL.Templater.TypeDefs
   , TypeFieldValue
   , TypeMap
   , getArgsAtPath
+  , getDefMap
+  , getDefMapFromDoc
   , getTypeAtPath
   , getTypeMapFromTree
   , getTypeTreeFromDoc
-  )
-  where
+  ) where
 
 import Prelude
 
@@ -39,6 +40,7 @@ type TypeFieldValue = Lazy
 
 data GqlTypeTree
   = Node String
+  | EnumNode { name :: String, values :: List String }
   | ObjectType TypeMap
   | ListType GqlTypeTree
   | NonNull GqlTypeTree
@@ -51,7 +53,7 @@ getTypeAtPath path tree = case path of
     ListType t -> getTypeAtPath path t
     NonNull t -> getTypeAtPath path t
     Node n -> Just $ Node n
-
+    EnumNode n -> Just $ EnumNode n
 
 getArgsAtPath :: List String -> GqlTypeTree -> Maybe ArgumentsDefinition
 getArgsAtPath path tree = case path of
@@ -61,11 +63,13 @@ getArgsAtPath path tree = case path of
     ListType t -> getArgsAtPath path t
     NonNull t -> getArgsAtPath path t
     Node _n -> Nothing
+    EnumNode _n -> Nothing
   Cons p ps -> case tree of
     ObjectType m -> lookup p m <#> force >>> _.returns # maybe Nothing (getArgsAtPath ps)
     ListType t -> getArgsAtPath path t
     NonNull t -> getArgsAtPath path t
     Node _n -> Nothing
+    EnumNode _n -> Nothing
 
 getTypeTreeFromDoc :: AST.Document -> Maybe GqlTypeTree
 getTypeTreeFromDoc doc =
@@ -85,6 +89,18 @@ getTypeTreeFromDefinitions roots defs = force <$>
         { operationType: Query, namedType } -> Just $ unwrap namedType
         _ -> Nothing
     )
+
+  defMap :: Map String (Lazy GqlTypeTree)
+  defMap = getDefMap defs
+
+getDefMapFromDoc :: AST.Document -> Map String (Lazy GqlTypeTree)
+getDefMapFromDoc doc = getDefMap $ toListOf typeDefinitionLens doc
+
+getDefMap :: List AST.TypeDefinition -> Map String (Lazy GqlTypeTree)
+getDefMap defs = defMap
+  where
+
+  defMap :: Map String (Lazy GqlTypeTree)
   defMap = Map.fromFoldable $ defs # mapMaybe \def -> do
     val <- fromAst def
     pure $ Tuple (tdName def) val
@@ -99,7 +115,11 @@ getTypeTreeFromDefinitions roots defs = force <$>
     AST.TypeDefinition_UnionTypeDefinition t -> Just $ defer \_ ->
       ObjectType $ getUnionTypeMap $ maybe Nil unwrap $ _.unionMemberTypes $ unwrap t
     AST.TypeDefinition_EnumTypeDefinition t -> Just $ defer \_ ->
-      Node $ _.name $ unwrap t
+      EnumNode { name, values }
+      where
+      name = _.name $ unwrap t
+      values = maybe Nil (map getEnumValueName <<< unwrap) $ _.enumValuesDefinition $ unwrap t
+      getEnumValueName = unwrap >>> _.enumValue >>> unwrap
     AST.TypeDefinition_InputObjectTypeDefinition t -> Just $ defer \_ ->
       ObjectType $ getInputObjectTypeMap $ unwrap t
 
@@ -181,6 +201,7 @@ getTypeMapFromTree = case _ of
   ListType t -> getTypeMapFromTree t
   NonNull t -> getTypeMapFromTree t
   Node _ -> Nothing
+  EnumNode _ -> Nothing
 
 typeDefinitionLens :: Traversal' AST.Document AST.TypeDefinition
 typeDefinitionLens = uPrism AST._Document

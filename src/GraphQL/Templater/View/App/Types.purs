@@ -5,6 +5,7 @@ import Prelude
 import Data.Argonaut.Core (Json)
 import Data.DateTime.Instant (Instant)
 import Data.GraphQL.AST (Document)
+import Data.Lazy (Lazy)
 import Data.List (List)
 import Data.Map as Map
 import Data.Maybe (Maybe)
@@ -38,6 +39,7 @@ type State =
   , schemaDoc :: Maybe Document
   , printedSchema :: Maybe String
   , schemaTypeTree :: Maybe GqlTypeTree
+  , allTypesMap :: Map.Map String (Lazy GqlTypeTree)
   , fullQueryCache :: Map.Map String Json
   , mostRecentEval :: Maybe Instant
   , autocompleteState :: Maybe (Ref (Maybe AutocompleteState))
