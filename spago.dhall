@@ -37,6 +37,7 @@ to generate this file without the comments in this block.
   , "graphql-parser"
   , "halogen"
   , "halogen-subscriptions"
+  , "halogen-svg-elems"
   , "http-methods"
   , "integers"
   , "lazy"

@@ -23,7 +23,7 @@ import Data.Profunctor.Choice (class Choice)
 import Data.Set (Set)
 import Data.Set as Set
 import Data.Tuple (Tuple(..), uncurry)
-import Debug (traceM)
+import Debug (spy, traceM)
 import Effect.Class (class MonadEffect)
 import GraphQL.Templater.Ast (Args)
 import GraphQL.Templater.Ast.Argument (ArgName(..), Argument(..), NullValue(..), StringValue(..), Value(..))
@@ -32,11 +32,13 @@ import GraphQL.Templater.JsonPos (NormalizedJsonPos(..))
 import GraphQL.Templater.TypeDefs (GqlTypeTree, getArgsAtPath)
 import GraphQL.Templater.TypeDefs as TypeDefs
 import GraphQL.Templater.View.Component.Checkbox (checkbox)
-import GraphQL.Templater.View.Component.SelectMenu (selectMenu)
+import GraphQL.Templater.View.Component.SelectMenu (selectMenu, selectMenuComponent)
+import GraphQL.Templater.View.Component.SelectMenu as SelectMenu
 import GraphQL.Templater.View.Html.Input (input, intInput, numberInput)
 import GraphQL.Templater.View.Html.Utils (css)
 import Halogen as H
 import Halogen.HTML as HH
+import Type.Proxy (Proxy(..))
 
 data Action
   = Init
@@ -44,6 +46,7 @@ data Action
   | SetArgValue InputValueDefinition String
       ( Either String (Unit -> Value Unit)
       )
+  | DeleteArgValue InputValueDefinition
   | ToggleArgEnabled T_InputValueDefinition
 
 type Input =
@@ -176,26 +179,38 @@ argGui =
       renderTypeTree = case _ of
         TypeDefs.Node nodeName -> HH.text $ show typeName <> " Node type not found: " <> nodeName
         TypeDefs.EnumNode { name, values } ->
-          HH.div [ css "pt-3" ] $ pure
-            $ selectMenu ivd.name
-                ( \value ->
+          HH.div [ css "pt-3" ]
+            [ HH.slot (Proxy :: _ "EnumNodeSelect") ivd.name
+                selectMenuComponent
+                { label: ivd.name
+                , noneSelectedLabel: "None selected"
+                , options: Array.fromFoldable values
+                , selectedValue: current
+                }
+                case _ of
+                  SelectMenu.ValueSelected value ->
                     SetArgValue (InputValueDefinition ivd) value
                       $ Right
                       $ Value_EnumValue (AstArg.EnumValue value)
-                )
-            $ Array.fromFoldable
-            $ nullValue :
-                ( values <#> \value ->
-                    { value
-                    , selected: current == Just value
-                    }
-                )
+                  SelectMenu.NoneSelected ->
+                    DeleteArgValue (InputValueDefinition ivd)
+            ]
+
+          --           HH.div [ css "pt-3" ] $ pure
+          -- $ selectMenu ivd.name
+          --     ( \value ->
+          -- SetArgValue (InputValueDefinition ivd) value
+          --   $ Right
+          --   $ Value_EnumValue (AstArg.EnumValue value)
+          --     )
+          -- $ Array.fromFoldable
+          -- $ nullValue :
+          --     ( values <#> \value ->
+          --         { value
+          --         , selected: current == Just value
+
           where
-          nullValue =
-            { selected: current == Just "" || current == Nothing
-            , value: ""
-            }
-          current = getValueInputString =<< argVal
+          current = spy "current" $ getValueInputString =<< argVal
 
         TypeDefs.ObjectType obj -> HH.text $ show typeName <> " Object type: " <> show (Map.keys obj)
         TypeDefs.ListType l -> renderTypeTree l
@@ -234,7 +249,6 @@ argGui =
       raiseNewArgs
 
     SetArgValue (InputValueDefinition ivd) str valE -> do
-      traceM { ivd, str, valE }
       H.modify_ \state@{ input } ->
         let
           updateArg = \(Argument a@{ name: ArgName name _ }) ->
@@ -255,6 +269,17 @@ argGui =
                 Left val -> Just { valDef: InputValueDefinition ivd, val }
                 _ -> Nothing
             }
+
+      raiseNewArgs
+
+    DeleteArgValue (InputValueDefinition ivd) -> do
+      H.modify_ \state@{ input } ->
+        state
+          { input = input
+              { arguments = input.arguments # List.filter \(Argument { name: ArgName name _ }) ->
+                  name /= ivd.name
+              }
+          }
 
       raiseNewArgs
 
